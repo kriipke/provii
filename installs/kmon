@@ -1,0 +1,3 @@
+github orhun/kmon kmon-.*gz$
+tar -xf *
+install kmon

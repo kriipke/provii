@@ -1,0 +1,21 @@
+github sharkdp/fd fd-.*x86_64.*unknown-linux-musl\.tar\.gz$
+tar -xf * && cd fd*
+
+install fd
+
+if [ -w $PREFIX/share/man/man1/ ]
+&& [ ! -f $PREFIX/share/man/man1/fd.1 ]
+    install fd.1 $PREFIX/share/man/man1/
+else
+    warn "fd installed but failed to install man page" 
+fi
+
+if [ -w $CFG/bash-completion.d ] \
+&& [ ! -f $CFG/bash-completion.d/fd.bash-completion ]
+then
+    install autocompletion/fd.bash-completion \
+	$CFG/bash-completion.d/
+else
+    warn "fd installed but failed to install bash completions" 
+fi
+

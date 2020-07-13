@@ -1,0 +1,3 @@
+github sharkdp/pastel shellcheck-.*linux\.x86_64.*xz
+tar -xJf *
+install shellcheck

@@ -1,0 +1,112 @@
+#!/bin/bash -e
+
+set -o pipefail
+
+# runs installation scripts in a new shell in a temporary folder
+
+exit_trap () {
+    local last_cmd="$BASH_COMMAND" exit_status=$?
+    ERROR_MSG="Command [$last_cmd] exited with code [$exit_status]"
+    err $ERROR_MSG
+}
+trap exit_trap ERR
+
+print_usage () {
+    echo "usage functionality not created yet!"
+}
+
+install() {
+    PROVII_LOCATION="$( readlink -e $0 | xargs dirname )"
+    if [ -z "$PV_DIR" ]; then
+	if [ -r "${PV_DIR-$PROVII_LOCATION}/installs/$1" ]; then
+	    PV_DIR="${PV_DIR-$PROVII_LOCATION}"
+	    INSTALLER="$PV_DIR"/installs/$1
+	else
+	    err 'Either set the environment variable PV_DIR to 
+		the correct dir or make sure the provii script
+		is located in the dir containing installs/'
+	fi
+    fi
+
+    if [ -f $PV_DIR/provii.conf ]; then
+        . $PV_DIR/provii.conf
+    fi
+
+    if [ -f ${XDG_CONFIG_HOME-$HOME/.config}/provii.conf ]; then 
+        . ${XDG_CONFIG_HOME-$HOME/.config}/provii.conf 
+    fi 
+
+    PV_CACHE=${XDG_CACHE_HOME-$HOME/.cache}
+    PV_LOG=${PV_LOG:-$PV_DIR/run.log}
+
+    if grep -i '^scope=\(sys\(tem\)?|user\)' $INSTALLER; then
+	PV_SCOPE=$( awk -F= '/^scope/ { print $2 }' $INSTALLER )
+    elif [ "$(id -u)" -eq "0" ]; then
+	PV_UID=0
+	PV_SCOPE=system
+    else
+	PV_UID=$(id -u)
+	PV_SCOPE=user
+    fi
+    
+    if [ "$PV_SCOPE" == system ]; then
+        PV_UID=0
+        PV_BIN=${SYS_BIN-/usr/local/bin}
+        PV_CFG=${SYS_CFG-/etc}
+        PV_SYSD=${SYS_SYSD-/etc/systemd/system}
+    elif [ "$PV_SCOPE" = user ]; then
+	PV_UID=$(id -u)
+        PV_BIN=${USER_BIN-$HOME/.local/bin}
+        PV_CFG=${USER_CFG-$HOME/.config}
+        PV_SYSD=${USER_SYSD-$HOME/.config/systemd/user.control}
+    else
+        err 'scope of the installation could not be determined..'
+    fi
+
+    PV_TMP=$PV_CACHE/provii/$(basename $INSTALLER)
+    mkdir -pm 0700 $PV_TMP && rm -rf $PV_TMP/*
+
+    /usr/bin/env -C $PV_TMP - \
+	PROVII_DIR="$PV_DIR" \
+	PROVII_LOG="$PV_LOG" \
+	BIN=$PV_BIN \
+	CFG=$PV_CFG \
+	SYSD=$PV_SYSD \
+	BASH_ENV=$PV_DIR/lib/_ENV_.sh \
+	/usr/bin/bash $INSTALLER
+}
+
+if [ -L "$0" ]; then
+    if [ "$(basename $0)" == "iinstal" ] \
+    || [ "$(basename $0)" == "iinst" ]
+    then
+        for inst in $*; do
+            echo $inst
+            install $inst
+        done
+	exit 0
+    fi
+fi
+
+PV_DIR=${PV_DIR- $(dirname $(readlink -e $0))}
+subcommand="$1"; shift  # remove 'install' from argument list
+case "$subcommand" in
+    install )
+        for inst in $*; do
+            echo $inst
+            install $inst
+        done
+        ;;
+    ls )
+        find $PV_DIR/installs/* -exec basename {} \; | column
+        ;;
+    cd )
+        cd $PV_DIR/installs
+        ;;
+    -h | --help | -help | help )
+        print_usage
+        ;;
+    * )
+        print_usage
+        ;;
+esac
