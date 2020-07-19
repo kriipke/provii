@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 # [ PROVII ] - main function repository
 
@@ -6,40 +6,49 @@ if [ $VERBOSE ]; then
     echo "Sourcing $0"
 fi
 
-declare -r DT_FMT='%y-%m-%d %a %H:%M:%S'
+declare -r DT_FMT='%b %d %T'
 
 log () {
-    printf '[ %s ] INFO :: %s\n' \
-	$( date +$DT_FMT ) $0 "$@"  >> $PROVII_LOG
+    dt=$( date +"$DT_FMT" )
+    inst=$( basename $INSTALLER )
+    printf 'time="%s" level=info installer=%s msg="%s"\n' \
+	"$dt" "$inst" "$*"  >> $PROVII_LOG
 
     if [ $VERBOSE ]; then
-	echo "$( basename $INSTALLER ): $@"
+	echo "$inst: $*"
     fi
 }
 
 warn () {
-    printf '[ %s ] WARN :: %s\n' \
-	$( date +$DT_FMT ) $0 "$@"  >> $PROVII_LOG
+    dt=$( date +"$DT_FMT" )
+    inst=$( basename $INSTALLER )
+    printf 'time="%s" level=warning installer=%s msg="%s"\n' \
+	"$dt" "$inst" "$*"  >> $PROVII_LOG
 
     if [ -t 1 ]; then
-	read -p "$( basename $INSTALLER ): $@, hit CTRL-C 
+	read -p "$inst: $*, hit CTRL-C 
 	    to exit or any other key to continue."
     fi
 }
 
 err () {
-    printf '[ %s ] ERROR :: %s\n' \
-	$( date +$DT_FMT ) $0 "$@"  >> $PROVII_LOG
+    dt=$( date +"$DT_FMT" )
+    inst=$( basename $INSTALLER )
+    printf 'time="%s" level=error installer=%s msg="%s"\n' \
+	 "$dt" "$inst" "$*"  >> $PROVII_LOG
 
     if [ -t 1 ]; then
-	echo Installation of "$( basename $INSTALLER )" failed.
+	echo Installation of "$inst" failed.
     fi
 }
 
-install() {
-    if [ "$#" -eq 1 ]; then
-	command install "$1" "$BIN/"
-    else
-	command install "$@"
-    fi
-}
+# only source the rest if we are in an active installation
+if [ -n "$INSTALLER" ]; then
+	install() {
+	    if [ "$#" -eq 1 ]; then
+		command install "$1" "$BIN/"
+	    else
+		command install "$@"
+	    fi
+	}
+fi

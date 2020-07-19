@@ -16,7 +16,7 @@ print_usage () {
 }
 
 install() {
-    PROVII_LOCATION="$( readlink -e $0 | xargs dirname )"
+    PROVII_LOCATION="$( readlink -f $0 | xargs dirname )"
     if [ -z "$PV_DIR" ]; then
 	if [ -r "${PV_DIR-$PROVII_LOCATION}/installs/$1" ]; then
 	    PV_DIR="${PV_DIR-$PROVII_LOCATION}"
@@ -36,8 +36,12 @@ install() {
         . ${XDG_CONFIG_HOME-$HOME/.config}/provii.conf 
     fi 
 
-    PV_CACHE=${XDG_CACHE_HOME-$HOME/.cache}
-    PV_LOG=${PV_LOG:-$PV_DIR/run.log}
+    PROVII_CACHE=${XDG_CACHE_HOME-$HOME/.cache}
+    mkdir -pm 0700 "$PROVII_CACHE"
+
+    PROVII_LOG=${PROVII_LOG:-$PV_DIR/run.log}
+    # enable logging functions
+	. lib/lib.sh
 
     if grep -i '^scope=\(sys\(tem\)?|user\)' $INSTALLER; then
 	PV_SCOPE=$( awk -F= '/^scope/ { print $2 }' $INSTALLER )
@@ -63,29 +67,38 @@ install() {
         err 'scope of the installation could not be determined..'
     fi
 
-    PV_TMP=$PV_CACHE/provii/$(basename $INSTALLER)
-    mkdir -pm 0700 $PV_TMP && rm -rf $PV_TMP/*
+    mkdir -p $PV_{BIN,CFG,SYS}
 
-    /usr/bin/env -C $PV_TMP - \
+
+    PV_TMP=$PROVII_CACHE/provii/$(basename $INSTALLER)
+    mkdir -pm 0700 $PV_TMP \
+	    && rm -rf $PV_TMP/* \
+	    && cd $PV_TMP
+
+	case $PATH in
+		*$PV_BIN*) ;;
+		*) warn "$PV_BIN not in PATH!" ;;
+	esac
+
+    /usr/bin/env - \
 	PROVII_DIR="$PV_DIR" \
-	PROVII_LOG="$PV_LOG" \
+	PROVII_LOG="$PROVII_LOG" \
 	BIN=$PV_BIN \
 	CFG=$PV_CFG \
 	SYSD=$PV_SYSD \
+	INSTALLER=$INSTALLER \
 	BASH_ENV=$PV_DIR/lib/_ENV_.sh \
-	/usr/bin/bash $INSTALLER
+	bash $INSTALLER
+
+    log successfully installed
 }
 
-if [ -L "$0" ]; then
-    if [ "$(basename $0)" == "iinstal" ] \
-    || [ "$(basename $0)" == "iinst" ]
-    then
-        for inst in $*; do
-            echo $inst
-            install $inst
-        done
+if [ -L "$0" ] && [ "$(basename $0)" == "iinst" ]
+then
+	for inst in $*; do
+	    install $inst
+	done
 	exit 0
-    fi
 fi
 
 PV_DIR=${PV_DIR- $(dirname $(readlink -e $0))}
@@ -93,8 +106,12 @@ subcommand="$1"; shift  # remove 'install' from argument list
 case "$subcommand" in
     install )
         for inst in $*; do
-            echo $inst
-            install $inst
+		if [ inst = 'provii' ]; then
+			#install_self
+			echo "not implemented yet!"
+		else
+			install $inst
+		fi
         done
         ;;
     ls )

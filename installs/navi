@@ -1,0 +1,3 @@
+github denisidoro/navi ^navi-.*-unknown-linux-musl\.tar\.gz$
+tar -xf *
+install navi

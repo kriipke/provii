@@ -1,0 +1,9 @@
+github BurntSushi/ripgrep ripgrep.*x86_64.*linux-musl\.tar\.gz
+tar -xf *
+cd ripgrep*/
+
+install rg
+
+#TO-DO:
+#cp complete/rg.bash $BASH_COMPLETION/
+#cp doc/rg.1 $MAN/man1/
