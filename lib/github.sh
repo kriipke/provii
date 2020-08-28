@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 
 # [ PROVII ] - Functions for fetching files from github.
 
@@ -12,6 +12,16 @@ USAGE: github user/repo[/path/to/file] [release]
     github orhun/kmon 'kmon-.*gz'         - fetch repo asset matching regex
     github orhun/kmon v1.1.2 'kmon-.*gz'  - fetch repo asset matching regex, branch v1.2.0
 EOF
+
+__dl_github_tarball() {
+    REPO=$1
+    FQDN='https://github.com'
+
+    if [ $VERBOSE ]; then
+	echo Downloading archive of "$REPO" 
+    fi
+    curl -#L $FQDN/$REPO/tarball/${BRANCH:-master} | tar -xzf - --strip=1
+}
 
 __dl_github_asset() {
     local RE FQDN URI URL RELEASE
@@ -100,6 +110,10 @@ github() {
                 BRANCH="$2"
                 ASSET_RE="$3"
                 __dl_github_asset "$REPO" "$ASSET_RE" "$BRANCH"
+                ;;
+            1) 
+                REPO="$1"
+		__dl_github_tarball "$REPO"
                 ;;
             *) 
                 echo "$_github_usage"

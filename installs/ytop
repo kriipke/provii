@@ -1,0 +1,3 @@
+github cjbassi/ytop ytop-.*gnu.*gz$
+tar -xf *
+install ytop

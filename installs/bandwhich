@@ -1,0 +1,3 @@
+github imsnif/bandwhich bandwhich-.*-$(uname -m)-unknown-linux-musl\.tar\.gz$
+tar -xf * 
+install bandwhich

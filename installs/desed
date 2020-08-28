@@ -1,0 +1,2 @@
+github SoptikHa2/desed desed-.*musl$
+install desed* $BIN/desed

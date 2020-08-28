@@ -1,6 +1,9 @@
-#!/bin/bash -e
+#!/usr/bin/env bash
+
+DEBUG=1
 
 set -o pipefail
+[ $DEBUG ] && set +x
 
 # runs installation scripts in a new shell in a temporary folder
 
@@ -40,8 +43,7 @@ install() {
     mkdir -pm 0700 "$PROVII_CACHE"
 
     PROVII_LOG=${PROVII_LOG:-$PV_DIR/run.log}
-    # enable logging functions
-	. lib/lib.sh
+    . $PV_DIR/lib/lib.sh
 
     if grep -i '^scope=\(sys\(tem\)?|user\)' $INSTALLER; then
 	PV_SCOPE=$( awk -F= '/^scope/ { print $2 }' $INSTALLER )
@@ -67,28 +69,37 @@ install() {
         err 'scope of the installation could not be determined..'
     fi
 
-    mkdir -p $PV_{BIN,CFG,SYS}
+    # format this to look nice and tabbed out with awks printf
+    echo "bin: $( basename $INSTALLER )"
+    echo "dest: $PV_BIN"
 
+    mkdir -p $PV_{BIN,CFG,SYS}
 
     PV_TMP=$PROVII_CACHE/provii/$(basename $INSTALLER)
     mkdir -pm 0700 $PV_TMP \
 	    && rm -rf $PV_TMP/* \
 	    && cd $PV_TMP
-
-	case $PATH in
-		*$PV_BIN*) ;;
-		*) warn "$PV_BIN not in PATH!" ;;
+	
+	case *:$PATH:* in
+		*:$PV_BIN:*)
+			;;
+		*) 
+			[ -z $SUDO_USER ] && warn "$PV_BIN" temporarily added \
+				to PATH, manually add it to your shell configuration
+			;;
 	esac
 
     /usr/bin/env - \
 	PROVII_DIR="$PV_DIR" \
 	PROVII_LOG="$PROVII_LOG" \
+	PS4="$( echo $INSTALLER)" \
+	ARCH="$( uname -m )" \
 	BIN=$PV_BIN \
 	CFG=$PV_CFG \
 	SYSD=$PV_SYSD \
 	INSTALLER=$INSTALLER \
-	BASH_ENV=$PV_DIR/lib/_ENV_.sh \
-	bash $INSTALLER
+	BASH_ENV="$PV_DIR"/lib/environment \
+	bash ${DEBUG+-x} $INSTALLER
 
     log successfully installed
 }
@@ -103,6 +114,7 @@ fi
 
 PV_DIR=${PV_DIR- $(dirname $(readlink -e $0))}
 subcommand="$1"; shift  # remove 'install' from argument list
+
 case "$subcommand" in
     install )
         for inst in $*; do
@@ -115,15 +127,14 @@ case "$subcommand" in
         done
         ;;
     ls )
-        find $PV_DIR/installs/* -exec basename {} \; | column
+	curl -sSL https://api.github.com/repos/l0xy/provii/contents/installs | jq -r '.[] | .name'
         ;;
-    cd )
-        cd $PV_DIR/installs
+    cat )
+	curl -sSL https://api.github.com/repos/l0xy/provii/contents/installs | jq -r '.[] | select( .name | test("fd")) | .download_url' | xargs curl
         ;;
     -h | --help | -help | help )
         print_usage
         ;;
-    * )
-        print_usage
-        ;;
+    summary)
+	__show_summary $1
 esac

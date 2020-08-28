@@ -1,0 +1,5 @@
+github lunaryorn/mdcat mdcat.*linux.*musl.*gz
+tar -xf * --strip=1
+tar -xf * --strip=1
+install mdcat && ln $BIN/mdcat $BIN/mdless
+cp completions/mdcat.bash $BASH_COMPLETIONS/

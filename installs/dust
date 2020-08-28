@@ -1,0 +1,4 @@
+printf -v RE 'dust-.*-%s-unknown-linux-gnu.*gz$' $ARCH
+github bootandy/dust $RE
+tar -xf * --strip=1
+install dust
