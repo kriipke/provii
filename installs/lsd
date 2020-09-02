@@ -1,4 +1,4 @@
-printf -v $RE 'lsd.*%s.*linux.*gnu.*gz' $ARCH
+printf -v RE 'lsd.*%s.*linux.*gnu.*gz' $ARCH
 github  Peltoche/lsd  $RE
 tar -xf * --strip=1
 install lsd
