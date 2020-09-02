@@ -1,3 +1,0 @@
-git clone git@github.com:agens-no/swiff.git
-cd swiff
-make

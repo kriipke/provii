@@ -1,3 +1,4 @@
-github BurntSushi/ripgrep *x86_64.*linux.*gz
+printf -v RE '*x86_64.*linux.*gz' $ARCH
+github BurntSushi/ripgrep $RE
 tar -xzf * --strip=1
 install rg

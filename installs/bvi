@@ -9,7 +9,7 @@ printf -v FULL_URL 'https://%s/%s/%s' \
 
 curl -#L $FULL_URL | tar -xf - --strip=1
 
-install bvi $BIN
-install bmore $BIN
+install bvi
+install bmore
 
 
