@@ -9,9 +9,6 @@ ${DEBUG+set -x}
 exit_trap () {
     local last_cmd="$BASH_COMMAND" exit_status=$?
     ERROR_MSG="Command [$last_cmd] exited with code [$exit_status]"
-	if [ -t 0 ]; then
-		echo "$ERROR_MSG"
-	fi
     err $ERROR_MSG
 }
 trap exit_trap ERR
@@ -295,7 +292,8 @@ run_installer () {
 }
 
 if [ "$(basename $0)" != 'provii' ]; then
-	echo basenameeeee "$(basename $0)" 
+	echo basename "$(basename $0)" 
+	run_installer "$(basename $0)" 
 fi
 
 if [ -L "$0" ] && [ "$(basename $0)" == "iinst" ]
