@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-DEBUG=1
-set -o pipefail
+
 set -e
 ${DEBUG+set -x}
 
@@ -78,8 +77,6 @@ install() {
 			esac
 
 		elif [[ $(file -b --mime-type $1) =~ application/x-.* ]]; then
-			echo "gotchaaa"
-			echo "$PV_BIN/"
 			command install "$1" "$PV_BIN/"
 		else
 			err "could not determine how to install $1, filetype ambiguous"
@@ -208,7 +205,6 @@ set +a
 run_installer () {
     INSTALLER=$1
     SCRIPT=/tmp/$1
-	echo $INSTALLER ---insttt 
     if [ -f ${XDG_CONFIG_HOME-$HOME/.config}/provii.conf ]; then 
         . ${XDG_CONFIG_HOME-$HOME/.config}/provii.conf 
     fi 
@@ -257,7 +253,6 @@ run_installer () {
     mkdir -p $PV_{BIN,CFG,SYS}
 
     PV_TMP=$PROVII_CACHE/provii/$INSTALLER
-	echo tempppppppppppppppppppppppp "$PV_TMP"
     mkdir -pm 0700 $PV_TMP \
 	    && rm -rf $PV_TMP/* \
 	    && cd $PV_TMP
@@ -281,8 +276,7 @@ run_installer () {
 	CFG=$PV_CFG \
 	SYSD=$PV_SYSD \
 	INSTALLER=$INSTALLER \
-	install=install \
-		curl -sSL https://api.github.com/repos/l0xy/provii/contents/installs/$INSTALLER | jq -r '.download_url' | xargs curl | bash ${DEBUG+-x}
+		curl -sSL https://api.github.com/repos/l0xy/provii/contents/installs/$INSTALLER | jq -r '.download_url' | xargs curl -sSL | bash ${DEBUG+-x}
 
 	if [ $? -eq "0" ]; then
 		log $INSTALLER successfully installed
@@ -292,7 +286,7 @@ run_installer () {
 }
 
 if [ "$(basename $0)" != 'provii' ]; then
-	echo basename "$(basename $0)" 
+	echo dirnameee "$(dirname $0)" 
 	run_installer "$(basename $0)" 
 fi
 
@@ -325,3 +319,4 @@ case "$subcommand" in
     summary)
 	__show_summary $1
 esac
+
