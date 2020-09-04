@@ -234,11 +234,15 @@ run_installer () {
 			PV_ZSH_COMP=${SYS_ZSH_COMP-/usr/local/share/zsh/vendor-completions}
 		fi
     elif [ "$PV_SCOPE" == user ]; then
-		PV_UID=$(id -u)
+        PV_UID=$(id -u)
         PV_BIN=${USER_BIN-$HOME/.local/bin}
         PV_CFG=${USER_CFG-$HOME/.config}
         PV_SYSD=${USER_SYSD-$HOME/.config/systemd/user.control}
-		PV_BASH_COMP=${USER_BASH_COMP-$HOME/.bash_completion}
+        if [ -n "$XDG_CONFIG_HOME" ]; then
+            PV_BASH_COMP=${USER_BASH_COMP-$XDG_CONFIG_HOME/bash_completion}
+        else
+            PV_BASH_COMP=${USER_BASH_COMP-$HOME/.bash_completion}
+        fi
 		if command -v zsh 2>/dev/null; then
 			PV_ZSH_COMP=${USER_ZSH_COMP-$ZSH_CUSTOM}
 		fi
@@ -275,6 +279,8 @@ run_installer () {
 	BIN=$PV_BIN \
 	CFG=$PV_CFG \
 	SYSD=$PV_SYSD \
+    BASH_COMPLETION=$PV_BASH_COMP \
+    ZSH_COMPLETION=$PV_ZSH_COMP \
 	INSTALLER=$INSTALLER \
 		curl -sSL https://api.github.com/repos/l0xy/provii/contents/installs/$INSTALLER | jq -r '.download_url' | xargs curl -sSL | bash ${DEBUG+-x}
 
