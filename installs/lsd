@@ -2,7 +2,7 @@
 
 FILE_RE='.*x86_64.*linux.*gnu.*gz$'
 github Peltoche/lsd "$FILE_RE"
-tar -xf -- * --strip=1
+tar -xf ./* --strip=1
 
 install lsd
 cp autocomplete/lsd.bash-completion $BASH_COMPLETION/

@@ -2,6 +2,6 @@
 
 FILE_RE='*x86_64.*linux.*gz$'
 github BurntSushi/ripgrep "$FILE_RE"
-tar -xzf -- * --strip=1
+tar -xzf ./* --strip=1
 
 install rg

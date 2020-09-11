@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 
 github orhun/kmon 'kmon-.*gz$'
-tar -xf -- *
+tar -xf ./*
 install kmon

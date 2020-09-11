@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
 github imsnif/bandwhich .*-$(uname -m)-unknown-linux-musl\.tar\.gz$
-tar -xf * 
+tar -xf ./* 
 
 install bandwhich

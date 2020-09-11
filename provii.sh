@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 
 set -e
-${DEBUG+set -x}
+
+if [ "$DEBUG" ]; then
+  set -x
+  VERBOSE=1
+fi
+
+PROVII_BRANCH=
 
 # everything between here and "set +a" will be exported
 # to the shell where the installer will be run
@@ -182,7 +188,7 @@ run_installer() {
     PV_CFG=${SYS_CFG-/etc}
     PV_SYSD=${SYS_SYSD-/etc/systemd/system}
     PV_BASH_COMP=${SYS_BASH_COMP-/etc/bash_completion.d}
-    if command -v zsh 2>/dev/null; then
+    if command -v zsh > /dev/null 2>&1; then
       PV_ZSH_COMP=${SYS_ZSH_COMP-/usr/local/share/zsh/vendor-completions}
     fi
   elif [ "$PV_SCOPE" == user ]; then
@@ -194,7 +200,7 @@ run_installer() {
     else
       PV_BASH_COMP=${USER_BASH_COMP-$HOME/.bash_completion}
     fi
-    if command -v zsh 2>/dev/null; then
+    if command -v zsh > /dev/null 2>&1; then
       PV_ZSH_COMP=${USER_ZSH_COMP-$ZSH_CUSTOM}
     fi
   else
@@ -222,16 +228,24 @@ run_installer() {
       to PATH, manually add it to your shell configuration
     ;;
   esac
+
+    printf -v GITHUB_QUERY "https://api.github.com%s%s" \
+      "/repos/l0xy/provii/contents/installs/$INSTALLER" \
+      "${PROVII_BRANCH:+?ref=$PROVII_BRANCH}"
+
   /usr/bin/env - \
     PROVII_LOG="$PROVII_LOG" \
-    PS4="$(echo $INSTALLER)" \
+    PS4="$INSTALLER" \
     BIN=$PV_BIN \
     CFG=$PV_CFG \
     SYSD=$PV_SYSD \
     BASH_COMPLETION=$PV_BASH_COMP \
     ZSH_COMPLETION=$PV_ZSH_COMP \
     INSTALLER=$INSTALLER \
-    curl -sSL https://api.github.com/repos/l0xy/provii/contents/installs/$INSTALLER | jq -r '.download_url' | xargs curl -sSL | bash ${DEBUG+-x}
+    curl -sSL "$GITHUB_QUERY" \
+    | jq -r '.download_url' \
+    | xargs curl -sSL \
+    | bash ${DEBUG+-x}
 
   if [ $? -eq "0" ]; then
     log $INSTALLER successfully installed
@@ -252,7 +266,10 @@ else
     done
     ;;
   ls)
-    curl -sSL https://api.github.com/repos/l0xy/provii/contents/installs | jq -r '.[] | .name'
+    printf -v GITHUB_QUERY "https://api.github.com%s%s" \
+      '/repos/l0xy/provii/contents/installs' \
+      "${PROVII_BRANCH:+?ref=$PROVII_BRANCH}"
+    curl -sSL "$GITHUB_QUERY" | jq -r '.[] | .name'
     ;;
   cat)
     get_downloader $1

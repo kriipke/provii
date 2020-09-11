@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 github kovidgoyal/kitty 'Linux.*amd64'
-tar -xf -- *
+tar -xf ./*
 
 install bin/kitty
 install share/man/man1/kitty.1

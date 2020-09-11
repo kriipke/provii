@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
 github xo/usql 'linux.*amd64.*bz2'
-tar -xjf -- * usql
+tar -xjf ./* usql
 install usql
 
