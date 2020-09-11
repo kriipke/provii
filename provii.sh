@@ -7,13 +7,15 @@ if [ "$DEBUG" ]; then
   VERBOSE=1
 fi
 
-PROVII_BRANCH=
+PROVII_BRANCH=curlable
+PS4='   $(tput setaf 5)provii.sh $LINENO :: $(tput sgr 0)'
 
 # everything between here and "set +a" will be exported
 # to the shell where the installer will be run
-set -a
 
-install() {
+
+fn_install=$( cat <<'EOF'
+BASH_FUNC_install%%=() {
   if [ "$#" -eq 1 ]; then
 
     mime_type=$(file -b --mime-type "$1")
@@ -27,7 +29,7 @@ install() {
       esac
       ;;
     application/x-*)
-      command install "$1" "$PV_BIN/"
+      command install "$1" "$BIN/"
       ;;
     *)
       err "Could not install $1"
@@ -38,8 +40,11 @@ install() {
     command install "$@"
   fi
 }
+EOF
+)
 
-__dl_github_tarball() {
+fn___dl_github_tarball=$( cat <<'EOF'
+BASH_FUNC___dl_github_tarball%%=() {
   REPO=$1
   FQDN='https://github.com'
 
@@ -48,8 +53,11 @@ __dl_github_tarball() {
   fi
   curl -#L $FQDN/$REPO/tarball/${BRANCH:-master} | tar -xzf - --strip=1
 }
+EOF
+)
 
-__dl_github_asset() {
+fn___dl_github_asset=$( cat <<'EOF'
+BASH_FUNC___dl_github_asset%%=() {
   local RE FQDN URI URL RELEASE
   FQDN='https://api.github.com'
 
@@ -67,10 +75,13 @@ __dl_github_asset() {
 	| .browser_download_url")
 
   echo "/${URL##*/}"
-  curl -#L -O "$URL"
+  curl -#LO "$URL"
 }
+EOF
+)
 
-__dl_github_file__() {
+fn___dl_github_file__=$(cat <<'EOF'
+BASH_FUNC___dl_github_file__%%=() {
   FQDN='https://api.github.com'
   BRANCH="${3+\?ref=$3}"
   URI="$FQDN/repos/$1/contents/$2$3"
@@ -103,9 +114,11 @@ __dl_github_file__() {
                 .[] | .path,.download_url
             end')
 }
-export -f __dl_github_file__
+EOF
+)
 
-github() {
+fn_github=$(cat <<'EOF'
+BASH_FUNC_github%%=() {
   local REPO BRANCH PATH_TO_FILE ASSET_RE
   PATH_TO_FILE=$(echo "$1" | cut -d/ -f3-)
   REPO=$(echo "$1" | cut -d/ -f-2)
@@ -146,7 +159,15 @@ github() {
     esac
   fi
 }
+EOF
+)
 
+fn_log=$( cat <<'EOF'
+BASH_FUNC_log%%=() {
+  echo "log:" "$@"
+}
+EOF
+)
 log() {
   echo "log:" "$@"
 }
@@ -156,10 +177,23 @@ warn() {
 }
 
 err() {
-  echo "error:" "$@"
+  echo "err:" "$@"
 }
 
-set +a
+fn_warn=$( cat <<'EOF'
+BASH_FUNC_warn%%=() {
+  echo "warn:" "$@"
+}
+EOF
+)
+
+fn_err="$( cat <<'EOF'
+BASH_FUNC_err%%=() {
+  echo "error:" "$@"
+}
+EOF
+)"
+
 
 run_installer() {
   INSTALLER=$1
@@ -187,6 +221,7 @@ run_installer() {
     PV_BIN=${SYS_BIN-/usr/local/bin}
     PV_CFG=${SYS_CFG-/etc}
     PV_SYSD=${SYS_SYSD-/etc/systemd/system}
+    PV_MAN=${SYS_MAN-grep -m /usr <( manpath | tr : $'\n')}
     PV_BASH_COMP=${SYS_BASH_COMP-/etc/bash_completion.d}
     if command -v zsh > /dev/null 2>&1; then
       PV_ZSH_COMP=${SYS_ZSH_COMP-/usr/local/share/zsh/vendor-completions}
@@ -195,6 +230,7 @@ run_installer() {
     PV_BIN=${USER_BIN-$HOME/.local/bin}
     PV_CFG=${USER_CFG-$HOME/.config}
     PV_SYSD=${USER_SYSD-$HOME/.config/systemd/user.control}
+    PV_MAN=${SYS_MAN-grep -m $HOME <( manpath | tr : $'\n')}
     if [ -n "$XDG_CONFIG_HOME" ]; then
       PV_BASH_COMP=${USER_BASH_COMP-$XDG_CONFIG_HOME/bash_completion}
     else
@@ -233,25 +269,27 @@ run_installer() {
       "/repos/l0xy/provii/contents/installs/$INSTALLER" \
       "${PROVII_BRANCH:+?ref=$PROVII_BRANCH}"
 
+
   /usr/bin/env - \
     PROVII_LOG="$PROVII_LOG" \
-    PS4="$INSTALLER" \
+    PS4="       $(tput setaf 6)$INSTALLER $LINENO :: $(tput sgr 0)" \
     BIN=$PV_BIN \
     CFG=$PV_CFG \
     SYSD=$PV_SYSD \
     BASH_COMPLETION=$PV_BASH_COMP \
     ZSH_COMPLETION=$PV_ZSH_COMP \
     INSTALLER=$INSTALLER \
-    curl -sSL "$GITHUB_QUERY" \
+    "$fn_github" \
+    "$fn___dl_github_asset" \
+    "$fn___dl_github_file__" \
+    "$fn___dl_github_tarball" \
+    "$fn_install" \
+    "$fn_log" \
+    "$fn_warn" \
+    "$fn_err" \
+    bash ${DEBUG+-x} -c "$( curl -sSL $GITHUB_QUERY \
     | jq -r '.download_url' \
-    | xargs curl -sSL \
-    | bash ${DEBUG+-x}
-
-  if [ $? -eq "0" ]; then
-    log $INSTALLER successfully installed
-  else
-    warn $INSTALLER failed
-  fi
+    | xargs curl -sSL )"
 }
 
 if [ "$(basename $0)" != 'provii.sh' ]; then
