@@ -1,3 +1,5 @@
-github sharkdp/pastel shellcheck-.*linux\.x86_64.*xz
-tar -xJf *
+#!/usr/bin/env bash
+
+github sharkdp/pastel '.*linux\.x86_64.*xz'
+tar -xJf -- *
 install shellcheck

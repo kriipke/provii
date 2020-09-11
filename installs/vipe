@@ -1,2 +1,4 @@
+#!/usr/bin/env bash
+
 github madx/moreutils/vipe
 install vipe

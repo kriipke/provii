@@ -1,2 +1,4 @@
+#!/usr/bin/env bash
+
 github stedolan/jq jq-linux64
 install jq-linux64 $BIN/jq

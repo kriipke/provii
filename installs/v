@@ -1,2 +1,4 @@
+#!/usr/bin/env bash
+
 github rupa/v 
-install {v,v.1}
+install v{,.1}

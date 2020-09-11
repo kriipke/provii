@@ -1,3 +1,5 @@
-github sharkdp/bat bat.*linux.*musl.*gz
-tar -xf * --strip=1
+#!/usr/bin/env bash
+
+github sharkdp/bat '.*linux.*musl.*gz'
+tar -xf  -- * --strip=1
 install bat{,.1}

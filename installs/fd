@@ -1,6 +1,8 @@
-printf -v RE 'fd-.*%s.*unknown-linux-musl\.tar\.gz$' $ARCH
-github sharkdp/fd $RE 
-tar -xf * --strip=1 
+#!/usr/bin/env bash
+
+FILE_RE='.*x86_64.*linux-musl.*gz$'
+github sharkdp/fd "$FILE_RE"
+tar -xf -- * --strip=1 
 
 install fd{,.1}
 cp autocompletion/fd.bash-completion $BASH_COMPLETION/

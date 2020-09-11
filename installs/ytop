@@ -1,3 +1,5 @@
-github cjbassi/ytop ytop-.*gnu.*gz$
-tar -xf *
+#!/usr/bin/env bash
+
+github cjbassi/ytop 'ytop-.*gnu.*gz$'
+tar -xf -- *
 install ytop

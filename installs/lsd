@@ -1,5 +1,8 @@
-printf -v RE 'lsd.*%s.*linux.*gnu.*gz' $ARCH
-github  Peltoche/lsd  $RE
-tar -xf * --strip=1
+#!/usr/bin/env bash
+
+FILE_RE='.*x86_64.*linux.*gnu.*gz$'
+github Peltoche/lsd "$FILE_RE"
+tar -xf -- * --strip=1
+
 install lsd
 cp autocomplete/lsd.bash-completion $BASH_COMPLETION/

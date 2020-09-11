@@ -1,5 +1,7 @@
-# terminal markdown reader
+#!/usr/bin/env bash
 
-github charmbracelet/glow glow.*linux.*x86_64.*gz$
-tar -xf *
+FILE_RE='.*linux.*x86_64.*gz$'
+github charmbracelet/glow "$FILE_RE"
+tar -xf -- *
+
 install glow

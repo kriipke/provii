@@ -1,6 +1,0 @@
-PROVII_SCOPE=system
-
-cd $(mktemp -d)
-github spieglt/whatfiles
-su -c make $SUDO_USER
-install bin/whatfiles $BIN

@@ -1,2 +1,4 @@
-github akavel/up ^up$
+#!/usr/bin/env bash
+
+github akavel/up '^up$'
 install up

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+FILE_RE='fzf.*linux.*amd64'
+github junegunn/fzf-bin "$FILE_RE"
+tar -xf -- *
+
+install fzf

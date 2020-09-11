@@ -1,2 +1,4 @@
-github SoptikHa2/desed desed-.*musl$
+#!/usr/bin/env bash
+
+github SoptikHa2/desed 'desed-.*musl$'
 install desed* $BIN/desed

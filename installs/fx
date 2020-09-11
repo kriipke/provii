@@ -1,5 +1,7 @@
-github antonmedv/fx fx-linux\.zip
-unzip *
+#!/usr/bin/env bash
+
+github antonmedv/fx 'fx-linux\.zip'
+unzip -- *
 install fx-linux $BIN/fx
 
 github antonmedv/fx-completion/complete.sh
