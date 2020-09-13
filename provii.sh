@@ -7,7 +7,7 @@ if [ "$DEBUG" ]; then
   VERBOSE=1
 fi
 
-PROVII_BRANCH=curlable
+PROVII_BRANCH=
 PS4='   $(tput setaf 5)provii.sh $LINENO :: $(tput sgr 0)'
 
 # everything between here and "set +a" will be exported
