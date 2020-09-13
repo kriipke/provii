@@ -2,4 +2,5 @@
 
 github sharkdp/bat '.*linux.*musl.*gz'
 tar -xf ./* --strip=1
-install bat{,.1}
+install bat
+install bat.1

@@ -13,6 +13,15 @@ PS4='   $(tput setaf 5)provii.sh $LINENO :: $(tput sgr 0)'
 # everything between here and "set +a" will be exported
 # to the shell where the installer will be run
 
+BOLD="$(tput bold 2>/dev/null || echo '')"
+GREY="$(tput setaf 0 2>/dev/null || echo '')"
+UNDERLINE="$(tput smul 2>/dev/null || echo '')"
+RED="$(tput setaf 1 2>/dev/null || echo '')"
+GREEN="$(tput setaf 2 2>/dev/null || echo '')"
+YELLOW="$(tput setaf 3 2>/dev/null || echo '')"
+BLUE="$(tput setaf 4 2>/dev/null || echo '')"
+MAGENTA="$(tput setaf 5 2>/dev/null || echo '')"
+NO_COLOR="$(tput sgr0 2>/dev/null || echo '')"
 
 fn_install=$( cat <<'EOF'
 BASH_FUNC_install%%=() {
@@ -244,8 +253,8 @@ run_installer() {
   fi
 
   # format this to look nice and tabbed out with awks printf
-  echo "bin: $INSTALLER"
-  echo "dest: $PV_BIN"
+  echo "${MAGENTA}binary:${NO_COLOR} $INSTALLER"
+  echo "${MAGENTA}destination:${NO_COLOR} $PV_BIN"
 
   mkdir -p $PV_{BIN,CFG,SYS}
 

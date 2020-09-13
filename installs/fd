@@ -4,6 +4,7 @@ FILE_RE='.*x86_64.*linux-musl.*gz$'
 github sharkdp/fd "$FILE_RE"
 tar -xf ./* --strip=1 
 
-install fd{,.1}
-cp autocompletion/fd.bash-completion $BASH_COMPLETION/
+install fd
+install fd.1
+cp autocomplete/fd.bash-completion $BASH_COMPLETION/
 
