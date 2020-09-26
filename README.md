@@ -13,6 +13,6 @@ You can find more information on provii at https://l0xy.sh/code/provii
 
 Once you find something you're interested in, say `kmon` - a utility for monitoring loaded kernel modules, you can simply run the following in your terminal:
 
-`bash -c "$(curl https://l0xy.sh/provii.sh)" kmon` 
+`bash -c "$(curl https://l0xy.sh/provii)" kmon` 
 
 Replace `kmon` in this example with any other installer script you find in the `./installers/` directory, enjoy the free software provided by the amazing programmers who created these cli-tools! (See below for more info)
