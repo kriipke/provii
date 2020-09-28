@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+# a modern version of ls
+# https://the.exa.website
+
+github ogham/exa 'exa-linux-x86_64.*zip$'
+unzip ./*
+install exa

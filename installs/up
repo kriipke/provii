@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
 
+# a tool for writing interactively crafting linux pipes,
+# with instant live preview of command results
+# https://github.com/akavel/up
+
 github akavel/up '^up$'
 install up

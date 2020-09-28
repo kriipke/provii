@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# a TUI system monitor written in rust  
+# https://github.com/cjbassi/ytop
+
 github cjbassi/ytop 'ytop-.*gnu.*gz$'
 tar -xf ./*
 install ytop

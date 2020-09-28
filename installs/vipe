@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
 
+# utility allowing you to run your editor in the middle of a
+# unix pipeline and edit the data that is being piped between programs
+# https://itenet.net/~joey/code/moreutils/
+
 github madx/moreutils/vipe
 install vipe

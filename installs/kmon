@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# linux kernel manager and activity monitor
+# https://kmon.cli.rs/
+
 github orhun/kmon 'kmon-.*gz$'
 tar -xf ./*
 install kmon

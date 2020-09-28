@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
 
+# Debugger for Sed: demystify and debug your sed scripts
+# https://github.com/SoptikHa2/desed
+
 github SoptikHa2/desed 'desed-.*musl$'
 install desed* $BIN/desed

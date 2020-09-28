@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# cat for markdown
+# https://github.com/lunaryorn/mdcat
+
 github lunaryorn/mdcat '.*linux.*musl.*gz'
 tar -xf ./* --strip=1
 

@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# a cat clone with wings
+# https://github.com/sharkdp/bat
+
 github sharkdp/bat '.*linux.*musl.*gz'
 tar -xf ./* --strip=1
 install bat

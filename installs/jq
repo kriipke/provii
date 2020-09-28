@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
 
+# command-line JSON processor
+# https://stedolan.github.io/jq/
+
 github stedolan/jq jq-linux64
 install jq-linux64 $BIN/jq

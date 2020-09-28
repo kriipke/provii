@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# z for vim
+# https://github.com/rupa/v
+
+edit the data that is being piped between programs
 github rupa/v 
 install v
 install v.1

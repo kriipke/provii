@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# a simple, fast and user-friendly alternative to find
+# https://github.com/sharkdp/fd
+
 FILE_RE='.*x86_64.*linux-musl.*gz$'
 github sharkdp/fd "$FILE_RE"
 tar -xf ./* --strip=1 

@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# a more intuitive version of du in rust
+# https://github.com/bootandy/dust
+
 FILE_RE='.*-x86_64-unknown-linux-gnu.*gz$' 
 github bootandy/dust "$FILE_RE"
 tar -xf ./* --strip=1

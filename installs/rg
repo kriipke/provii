@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# recursively search directories for a regex pattern
+# https://github.com/BurntSushi/ripgrep
+
 FILE_RE='*x86_64.*linux.*gz$'
 github BurntSushi/ripgrep "$FILE_RE"
 tar -xzf ./* --strip=1

@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# the fast, featureful, GPU based terminal emulator
+# https://sw.kovidgoyal.net/kitty/
+
 github kovidgoyal/kitty 'Linux.*amd64'
 tar -xf ./*
 

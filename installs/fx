@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 
+# terminal JSON viewer
+# https://fx.wtf
+
 github antonmedv/fx 'fx-linux\.zip'
 unzip ./*
-install fx-linux $BIN/fx
+install fx-linux "$BIN"/fx
 
 github antonmedv/fx-completion/complete.sh
-cp complete.sh $BASH_COMPLETION/fx-bash.completion
+cp complete.sh "$BASH_COMPLETION"/fx-bash.completion

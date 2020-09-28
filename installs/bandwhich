@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Terminal bandwidth utilization tool 
+# https://github.com/imsnif/bandwhich
+
 github imsnif/bandwhich .*-$(uname -m)-unknown-linux-musl\.tar\.gz$
 tar -xf ./* 
 

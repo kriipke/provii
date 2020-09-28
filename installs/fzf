@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# a command-line fuzzy finder
+# https://github.com/junegunn/fzf
+
 FILE_RE='fzf.*linux.*amd64'
 github junegunn/fzf-bin "$FILE_RE"
 tar -xf ./*
