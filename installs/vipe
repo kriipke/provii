@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
-# utility allowing you to run your editor in the middle of a
-# unix pipeline and edit the data that is being piped between programs
+# cli-utility allowing the interactive editing data going through a unix pipe
 # https://itenet.net/~joey/code/moreutils/
 
 github madx/moreutils/vipe

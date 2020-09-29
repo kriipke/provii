@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
-# a display-oriented editor for binary files (hex-editor),
-# based on the vi texteditor. 
+# hex-editor, inspired by vi
 # http://bvi.sourceforge.net/
 
 URL_FQDN='prdownloads.sourceforge.net'

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# cat for markdown
+# render md files in your terimanal, offers both cat-like and pager-like functionality
 # https://github.com/lunaryorn/mdcat
 
 github lunaryorn/mdcat '.*linux.*musl.*gz'

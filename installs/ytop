@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# a TUI system monitor written in rust  
+# a tui system monitor written in rust  
 # https://github.com/cjbassi/ytop
 
 github cjbassi/ytop 'ytop-.*gnu.*gz$'

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# LS(Deluxe) - the next gen ls command
+# ls(deluxe) - the next gen ls command
 # https://github.com/Peltoche/lsd
 
 FILE_RE='.*x86_64.*linux.*gnu.*gz$'

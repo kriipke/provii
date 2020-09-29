@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Terminal bandwidth utilization tool 
+# bandwidth utilization tool for the terminal
 # https://github.com/imsnif/bandwhich
 
 github imsnif/bandwhich .*-$(uname -m)-unknown-linux-musl\.tar\.gz$
