@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# robust cli image viewing / manipulation tool
+# https://imagemagick.org
+
+# NOTE: for a large library of scripts that use ImageMagicks
+#- capabilities see, http://www.fmwconcepts.com/imagemagick/index.php
+
+URL_FQDN='https://imagemagick.org'
+URL_DIR='/download/binaries/'
+URL_FILE='magick'
+
+curl -#O "${URL_FQDN}${URL_DIR}${URL_FILE}"
+install "$URL_FILE" 
