@@ -3,6 +3,9 @@
 # linux kernel manager and activity monitor
 # https://kmon.cli.rs/
 
-github orhun/kmon 'kmon-.*gz$'
+FILE_RE='kmon-.*gz$'
+github orhun/kmon $FILE_RE
 tar -xf ./*
+
 install kmon
+[ $MAN ] && cp man/kmon.8 $MAN/man8/

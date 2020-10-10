@@ -2,8 +2,9 @@
 
 # a cat clone with wings
 # https://github.com/sharkdp/bat
-
-github sharkdp/bat '.*linux.*musl.*gz'
+ASSET_RE=$( printf '%s.*%s.*gnu.*gz' $ARCH $OS )
+github sharkdp/bat $ASSET_RE 
 tar -xf ./* --strip=1
+
 install bat
-install bat.1
+[ $MAN ] && cp bat.1 $MAN/man1

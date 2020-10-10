@@ -3,9 +3,11 @@
 # terminal JSON viewer
 # https://fx.wtf
 
-github antonmedv/fx 'fx-linux\.zip'
+FILE_RE=$( printf 'fx.*%s' $OS )
+github antonmedv/fx $FILE_RE
 unzip ./*
-install fx-linux "$BIN"/fx
+install fx-$OS $BIN/fx
 
-github antonmedv/fx-completion/complete.sh
-cp complete.sh "$BASH_COMPLETION"/fx-bash.completion
+[ $BASH_COMP ] \
+	&& github antonmedv/fx-completion/complete.sh \
+	&& cp complete.sh $BASH_COMP/fx.bash-completion

@@ -3,7 +3,9 @@
 # universal command-line interface for SQL databases 
 # https://github.com/xo/usql
 
-github xo/usql 'linux.*amd64.*bz2'
+ASSET_RE=$( printf '%s.*%s.*%s' $NAME $OS $ARCH )
+github xo/usql $ASSET_RE
 tar -xjf ./* usql
+
 install usql
 

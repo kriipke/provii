@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-
 # a simple, fast and user-friendly alternative to find
 # https://github.com/sharkdp/fd
 
-FILE_RE='.*x86_64.*linux-musl.*gz$'
-github sharkdp/fd "$FILE_RE"
-tar -xf ./* --strip=1 
+# printf -v FILE_RE '.*%s.*%s-musl.*gz$' $ARCH ${OS,,}
+ASSET_RE=$( printf '.*%s.*%s-gnu.*gz$' $ARCH $OS )
+github sharkdp/fd $ASSET_RE
+tar -xf ./* --strip=1
 
 install fd
-install fd.1
-cp autocomplete/fd.bash-completion $BASH_COMPLETION/
-
+[ $MAN ] && cp fd.1 $MAN/man1/fd.1
+[ $ZSH_COMP ] && cp autocomplete/_fd $ZSH_COMP/
+[ $BASH_COMP ] && cp autocomplete/fd.bash-completion $BASH_COMP/

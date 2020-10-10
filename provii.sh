@@ -22,17 +22,29 @@ fi
 
 
 create_dir() {
-	if [ ! -d "$1" ] && [ -w "$(dirname "$1")" ]; then
-			mkdir -p "$1"
-			if [ "$?" -eq 0 ]; then
-				log --created "$1"
-			else
-				warn Failed to create "$1"
-				return 1
-			fi
-	fi
+	for dir in "$@"; do
+		echo "$dir"
+		if [ ! -d "$1" ] && [ -w "$(dirname "$1")" ]; then
+				mkdir -p "$1"
+				if [ "$?" -eq 0 ]; then
+					log --created "$1"
+				else
+					warn Failed to create "$1"
+					return 1
+				fi
+		fi
+	done
 }
 
+get_installer() {
+		printf -v GITHUB_QUERY "https://api.github.com%s%s" \
+			"/repos/l0xy/provii/contents/installs/$INSTALLER" \
+			"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}"
+
+		SCRIPTLET="$(curl -sSL $GITHUB_QUERY |
+			jq '.download_url' |
+			xargs curl -sSL)"
+}
 ls_installers() {
 	GITHUB_QUERY_LS="$( printf \
 		"https://api.github.com/repos/l0xy/provii/contents/installs%s" \
@@ -312,7 +324,8 @@ env \
 EOF
 )"
 run_installer() {
-	INSTALLER=$1
+	[ "$VERBOSE" ] && echo "INSTALLER: $INSTALLER"
+
 	if [ -f "${XDG_CONFIG_HOME-$HOME/.config}/proviirc" ]; then
 		. "${XDG_CONFIG_HOME-$HOME/.config}/proviirc"
 	fi
@@ -436,11 +449,13 @@ done' "$PV_BASH_COMP" >> "$PV_BASH_CONFIG"
 
 	create_dir $PV_{BIN,CFG,SYS}
 
-	PV_TMP=$PROVII_CACHE/provii/$INSTALLER
-	if [ ! "$SUMMARIZE" ]; then
-	mkdir -pm 0700 $PV_TMP &&
-		rm -rf $PV_TMP/* &&
-		cd $PV_TMP
+	if [ "$INSTALLER" ]; then
+		PV_TMP=$PROVII_CACHE/provii/$INSTALLER
+	
+		if [ ! "$SUMMARIZE" ]; then
+		mkdir -pm 0700 $PV_TMP &&
+			rm -rf $PV_TMP/*
+		fi
 	fi
 
 	set +a
@@ -466,7 +481,7 @@ done' "$PV_BASH_COMP" >> "$PV_BASH_CONFIG"
 		SCRIPTLET="$PRINT_VARIABLES"
 	fi
 
-	/usr/bin/env - \
+	/usr/bin/env -C ${PV_TMP:-$PROVII_CACHE} - \
 		SCOPE="$PV_SCOPE" \
 		BIN="$PV_BIN" \
 		${INSTALLER:+NAME="$INSTALLER"}\
@@ -503,7 +518,7 @@ else
 	case "$subcommand" in
 	install)
 		for inst in $*; do
-			run_installer "$inst"
+			INSTALLER="$inst" run_installer
 		done
 		;;
 	ls)
@@ -513,14 +528,30 @@ else
 		SUMMARIZE=1
 		if [ $# -gt 0 ]; then
 			for inst in $*; do
-				run_installer "$inst"
+				INSTALLER="$inst" run_installer
 			done
 		else
 			run_installer
 		fi
 		;;
 	cat)
-		get_downloader $1
+		case "$1" in
+			-b | --branch )
+				[ -n "$1" ] \
+					&& PROVII_BRANCH="$1" \
+					|| print_usage 'cat'
+				[ -n "$2" ] \
+					&& INSTALLER="$2" \
+					|| print_usage 'cat'
+				;;
+			*) 
+				[ -n "$1" ] \
+					&& INSTALLER="$1" \
+					|| print_usage 'cat'
+				;;
+		esac
+		get_installer
+		echo "$SCRIPTLET"
 		;;
 	-h | --help | -help | help)
 		print_usage

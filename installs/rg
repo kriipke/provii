@@ -3,8 +3,15 @@
 # recursively search directories for a regex pattern
 # https://github.com/BurntSushi/ripgrep
 
-FILE_RE='*x86_64.*linux.*gz$'
-github BurntSushi/ripgrep "$FILE_RE"
+FILE_RE=$( printf '%s*%s.*%s.*gz$' $NAME $ARCH $OS )
+github BurntSushi/ripgrep $FILE_RE
 tar -xzf ./* --strip=1
 
 install rg
+
+[ $MAN ] \
+	&& doc/rg.1 $MAN/man1/ 
+[ $BASH_COMP ] \
+	&& complete/rg.bash $BASH_COMP/rg.bash-completion
+[ $ZSH_COMP ] \
+	&& complete/_rg $ZSH_COMP/

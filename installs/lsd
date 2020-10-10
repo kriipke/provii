@@ -3,9 +3,14 @@
 # ls(deluxe) - the next gen ls command
 # https://github.com/Peltoche/lsd
 
-FILE_RE='.*x86_64.*linux.*gnu.*gz$'
+FILE_RE='%s.*%s.*%s.*(gnu)?.*gz$' $NAME $ARCH $OS
 github Peltoche/lsd "$FILE_RE"
 tar -xf ./* --strip=1
 
 install lsd
-cp autocomplete/lsd.bash-completion $BASH_COMPLETION/
+
+[ $BASH_COMP ] \
+	&& cp autocomplete/lsd.bash-completion $BASH_COMP/
+
+[ $ZSH_COMP ] \
+	&& cp autocomplete/_lsd $ZSH_COMP/

@@ -3,7 +3,8 @@
 # bandwidth utilization tool for the terminal
 # https://github.com/imsnif/bandwhich
 
-github imsnif/bandwhich .*-$(uname -m)-unknown-linux-musl\.tar\.gz$
+ASSET_RE=$( printf '%s.*%s.*%s' $NAME $ARCH $OS )
+github imsnif/bandwhich $ASSET_RE
 tar -xf ./* 
 
 install bandwhich

@@ -3,8 +3,20 @@
 # a command-line fuzzy finder
 # https://github.com/junegunn/fzf
 
-FILE_RE='fzf.*linux.*amd64'
+FILE_RE=$( printf 'fzf.*%s.*%s' $OS $ARCH ) 
 github junegunn/fzf-bin "$FILE_RE"
 tar -xf ./*
 
 install fzf
+
+[ $BASH_COMP ] \
+	&& github junegunn/fzf/shell/completion.bash \
+	&& cp completion.bash $BASH_COMP/$NAME.completion.bash
+
+[ $ZSH_COMP ] \
+	&& github junegunn/fzf/shell/completion.zsh \
+	&& cp completion.zsh $ZSH_COMP/_$NAME
+
+[ $MAN ] \
+	&& github junegunn/fzf/man/man1/fzf.1 \
+	&& cp fzf.1 $MAN/man1/

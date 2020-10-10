@@ -3,5 +3,6 @@
 # command-line JSON processor
 # https://stedolan.github.io/jq/
 
-github stedolan/jq jq-linux64
-install jq-linux64 $BIN/jq
+FILE_RE=$( printf 'jq-%s.*%s' $OS $ARCH )
+github stedolan/jq $FILE_RE
+install jq* $BIN/jq

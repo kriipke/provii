@@ -6,9 +6,11 @@
 # NOTE: for a large library of scripts that use ImageMagicks
 #- capabilities see, http://www.fmwconcepts.com/imagemagick/index.php
 
-URL_FQDN='https://imagemagick.org'
-URL_DIR='/download/binaries/'
+URL_FQDN='imagemagick.org'
+URL_DIRS='/download/binaries/'
 URL_FILE='magick'
 
-curl -#O "${URL_FQDN}${URL_DIR}${URL_FILE}"
-install "$URL_FILE" 
+URL=$(printf 'https://%s/%s/%s' $URL_{FQDN,DIRS,FILE})
+curl -#O $URL
+
+install magick

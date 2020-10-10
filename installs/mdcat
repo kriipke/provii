@@ -3,9 +3,13 @@
 # render md files in your terimanal, offers both cat-like and pager-like functionality
 # https://github.com/lunaryorn/mdcat
 
-github lunaryorn/mdcat '.*linux.*musl.*gz'
+ASSET_RE=$( printf '%s.*%s' $NAME $OS )
+github lunaryorn/mdcat $ASSET_RE
 tar -xf ./* --strip=1
 
 install mdcat \
 	&& ln $BIN/mdcat $BIN/mdless
-cp completions/mdcat.bash $BASH_COMPLETIONS/
+[ $BASH_COMP ] \
+	&& cp completions/mdcat.bash $BASH_COMP/mdcat.bash-completion
+[ $ZSH_COMP ] \
+	&& cp completions/_mdcat $ZSH_COMP/
