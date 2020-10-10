@@ -524,7 +524,7 @@ else
 	ls)
 		ls_installers
 		;;
-	vars)
+	env)
 		SUMMARIZE=1
 		if [ $# -gt 0 ]; then
 			for inst in $*; do
