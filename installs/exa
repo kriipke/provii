@@ -4,5 +4,5 @@
 # https://the.exa.website
 FILE_RE=$( printf '%s-%s-%s.*zip$' $NAME $OS $ARCH )
 github ogham/exa $FILE_RE
-unzip ./*
-install exa-*$ARCH $BIN/exa
+unzip ./* -d bin/
+install bin/exa* $BIN/exa
