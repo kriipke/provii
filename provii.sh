@@ -8,7 +8,7 @@ if [ "$DEBUG" ]; then
 	PS4='${TAB}${MAGENTA}provii.sh $LINENO ::${STYLE_RESET} '
 fi
 
-PROVII_BRANCH=
+PROVII_BRANCH=docs-comps
 
 if command -v tput >/dev/null 2>&1; then
 	if [ $(($(tput colors 2>/dev/null))) -ge 8 ]; then
@@ -389,8 +389,8 @@ run_installer() {
 		
 		if [ -z "$PV_MAN" ]; then
 			PV_MAN="$PV_DATA/man"
-			mkdir -p "$PV_MAN/man{1,8}"
-			echo "$PV_MAN" > "$HOME/.manpath"
+			mkdir -p $PV_MAN/man{1,8}
+			echo "MANDATORY_MANPATH $PV_MAN" > "$HOME/.manpath"
 		fi
 
 		# bash-completion 2.9 introduced ${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion.d

@@ -3,7 +3,7 @@
 # recursively search directories for a regex pattern
 # https://github.com/BurntSushi/ripgrep
 
-FILE_RE=$( printf '%s*%s.*%s.*gz$' $NAME $ARCH $OS )
+FILE_RE=$( printf '%s.*%s.*%s.*gz$' $NAME $ARCH $OS )
 github BurntSushi/ripgrep $FILE_RE
 tar -xzf ./* --strip=1
 
