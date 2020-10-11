@@ -3,8 +3,8 @@
 # ls(deluxe) - the next gen ls command
 # https://github.com/Peltoche/lsd
 
-FILE_RE='%s.*%s.*%s.*(gnu)?.*gz$' $NAME $ARCH $OS
-github Peltoche/lsd "$FILE_RE"
+ASSET_RE=$( printf '%s.*%s.*%s.*(gnu)?.*gz$' $NAME $ARCH $OS )
+github Peltoche/lsd $ASSET_RE
 tar -xf ./* --strip=1
 
 install lsd

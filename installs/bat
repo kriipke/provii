@@ -2,6 +2,7 @@
 
 # a cat clone with wings
 # https://github.com/sharkdp/bat
+
 ASSET_RE=$( printf '%s.*%s.*gnu.*gz' $ARCH $OS )
 github sharkdp/bat $ASSET_RE 
 tar -xf ./* --strip=1

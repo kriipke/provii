@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# universal command-line interface for SQL databases 
+# universal command-line interface for SQL databases
 # https://github.com/xo/usql
 
 ASSET_RE=$( printf '%s.*%s.*%s' $NAME $OS $ARCH )

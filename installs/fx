@@ -3,7 +3,7 @@
 # terminal JSON viewer
 # https://fx.wtf
 
-FILE_RE=$( printf 'fx.*%s' $OS )
+FILE_RE=$( printf '%s.*%s' $NAME $OS )
 github antonmedv/fx $FILE_RE
 unzip ./*
 install fx-$OS $BIN/fx
