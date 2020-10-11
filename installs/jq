@@ -3,6 +3,5 @@
 # command-line JSON processor
 # https://stedolan.github.io/jq/
 
-ASSET_RE=$( printf '%s.*%s.*%s' $NAME $OS $ARCH )
-github stedolan/jq $ASSET_RE
+github stedolan/jq "$NAME.*$OS.*$ARCH"
 install jq* $BIN/jq

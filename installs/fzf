@@ -3,8 +3,7 @@
 # a command-line fuzzy finder
 # https://github.com/junegunn/fzf
 
-FILE_RE=$( printf 'fzf.*%s.*%s' $OS $ARCH ) 
-github junegunn/fzf-bin "$FILE_RE"
+github junegunn/fzf-bin "$NAME.*$OS.*$ARCH"
 tar -xf ./*
 
 install fzf

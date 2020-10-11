@@ -3,8 +3,7 @@
 # recursively search directories for a regex pattern
 # https://github.com/BurntSushi/ripgrep
 
-FILE_RE=$( printf '%s.*%s' $ARCH $OS )
-github BurntSushi/ripgrep $FILE_RE
+github BurntSushi/ripgrep "$ARCH.*$OS"
 tar -xzf ./* --strip=1
 
 install rg

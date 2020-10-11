@@ -3,8 +3,7 @@
 # linux kernel manager and activity monitor
 # https://kmon.cli.rs/
 
-ASSET_RE=$( printf '%s.*gz$' $NAME )
-github orhun/kmon $ASSET_RE
+github orhun/kmon "$NAME.*gz$"
 tar -xf ./*
 
 install kmon

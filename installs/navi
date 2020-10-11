@@ -3,8 +3,7 @@
 # interactive cheatsheet tool for the command-line
 # https://github.com/denisidoro/navi
 
-FILE_RE='^.*-unknown-linux-musl.*gz$'
-github denisidoro/navi "$FILE_RE" 
+github denisidoro/navi "$ARCH.*$OS" 
 tar -xf ./*
 
 install navi

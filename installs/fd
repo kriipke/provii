@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
+
 # a simple, fast and user-friendly alternative to find
 # https://github.com/sharkdp/fd
 
-# printf -v FILE_RE '.*%s.*%s-musl.*gz$' $ARCH ${OS,,}
-ASSET_RE=$( printf '.*%s.*%s-gnu.*gz$' $ARCH $OS )
-github sharkdp/fd $ASSET_RE
+github sharkdp/fd "$ARCH.*$OS.*gnu.*gz$"
 tar -xf ./* --strip=1
 
 install fd

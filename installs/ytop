@@ -3,6 +3,7 @@
 # a tui system monitor written in rust  
 # https://github.com/cjbassi/ytop
 
-github cjbassi/ytop 'ytop-.*gnu.*gz$'
+github cjbassi/ytop "$NAME.*$ARCH.*$OS"
 tar -xf ./*
+
 install ytop

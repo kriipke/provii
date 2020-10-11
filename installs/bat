@@ -3,8 +3,7 @@
 # a cat clone with wings
 # https://github.com/sharkdp/bat
 
-ASSET_RE=$( printf '%s.*%s.*gnu.*gz' $ARCH $OS )
-github sharkdp/bat $ASSET_RE 
+github sharkdp/bat "$ARCH.*$OS.*gnu.*gz"
 tar -xf ./* --strip=1
 
 install bat

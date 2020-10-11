@@ -3,8 +3,7 @@
 # a shell script static analysis tool
 # https://github.com/koalaman/shellcheck
 
-ASSET_RE=$( printf '%s.*%s.*xz$' $OS $ARCH )
-github koalaman/shellcheck $ASSET_RE
+github koalaman/shellcheck "$OS.*$ARCH.*xz$"
 tar -xJf ./*
 
 install shellcheck

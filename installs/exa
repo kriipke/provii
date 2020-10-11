@@ -2,7 +2,8 @@
 
 # a modern version of ls
 # https://the.exa.website
-FILE_RE=$( printf '%s-%s-%s.*zip$' $NAME $OS $ARCH )
-github ogham/exa $FILE_RE
-unzip ./* -d bin/ &>/dev/null
+
+github ogham/exa "$NAME.*$OS.*$ARCH"
+unzip ./* -d bin/ 1>/dev/null
+
 install bin/exa* $BIN/exa

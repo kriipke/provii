@@ -3,8 +3,7 @@
 # render md files in your terimanal, offers both cat-like and pager-like functionality
 # https://github.com/lunaryorn/mdcat
 
-ASSET_RE=$( printf '%s.*%s' $NAME $OS )
-github lunaryorn/mdcat $ASSET_RE
+github lunaryorn/mdcat "$NAME.*$OS"
 tar -xf ./* --strip=1
 
 install mdcat \

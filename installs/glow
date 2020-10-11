@@ -3,8 +3,7 @@
 # render markdown on the CLI, with pizzazz!
 # https://github.com/charmbracelet/glow
 
-FILE_RE='.*linux.*x86_64.*gz$'
-github charmbracelet/glow "$FILE_RE"
+github charmbracelet/glow "$OS.*$ARCH.*gz$"
 tar -xf ./*
 
 install glow

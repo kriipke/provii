@@ -3,6 +3,5 @@
 # interactive debugger for sed scripts
 # https://github.com/SoptikHa2/desed
 
-ASSET_RE=$( printf '%s-%s.*$' $NAME $ARCH )
-github SoptikHa2/desed $ASSET_RE
-install desed-$ARCH* $BIN/desed
+github SoptikHa2/desed "$ARCH.*$OS"
+install desed* $BIN/desed

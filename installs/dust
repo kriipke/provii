@@ -3,8 +3,7 @@
 # a more intuitive version of du in rust
 # https://github.com/bootandy/dust
 
-FILE_RE=$( printf '%s-.*-%s-.*%s-gnu' $NAME $ARCH $OS ) 
-github bootandy/dust $FILE_RE
+github bootandy/dust "$NAME.*$ARCH.*$OS" 
 tar -xf ./* --strip=1
 
 install dust

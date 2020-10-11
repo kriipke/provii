@@ -4,5 +4,5 @@
 # with instant live preview of command results
 # https://github.com/akavel/up
 
-github akavel/up '^up$'
+github akavel/up "^$NAME$"
 install up
