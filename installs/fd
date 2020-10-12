@@ -4,7 +4,7 @@
 # https://github.com/sharkdp/fd
 
 github sharkdp/fd "$ARCH.*$OS.*gnu.*gz$"
-tar -xf --strip=1 ./* 
+tar -xf ./* --strip=1 
 
 install fd
 [ $MAN ] && cp fd.1 $MAN/man1/fd.1
