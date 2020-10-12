@@ -24,7 +24,7 @@ fi
 create_dir() {
 	for dir in "$@"; do
 		if [ ! -d "$dir" ] && [ -w "$(dirname "$dir")" ]; then
-			mkdir -p "$1"
+			mkdir -p "$dir"
 			if [ "$?" -eq 0 ]; then
 				log --created "$dir"
 			else
@@ -188,7 +188,8 @@ BASH_FUNC___dl_github_file__%%=() {
 	done < <( curl -sSL "$URI" | jq -r '
 		if type == "object" 
 		then .path,.download_url 
-		else .[] | .path, .download_url' )
+		else .[] | .path, .download_url
+		end' )
 }
 EOF
 )
@@ -241,7 +242,7 @@ EOF
 log() {
 	FMT='+%Y-%m-%d %T'
 	if [ "$1" == '--created' ]; then
-		shift && printf '%s %s %s' "$(date "$FMT")" created_file "$@" >> $PROVII_LOG
+		shift && printf '%s %s %s\n' "$(date "$FMT")" created_file "$@" >> $PROVII_LOG
 	else
 		printf '%s %s %s' "$(date "$FMT")" info "$@" >> $PROVII_LOG
 	fi
@@ -260,9 +261,9 @@ fn_log="$( cat <<'EOF'
 BASH_FUNC_log%%=() {
 	FMT='+%Y-%m-%d %T'
 	if [ $1 == '--created' ]; then
-		shift && echo "$(date "$FMT") created_file $@" >> $LOG
+		shift && printf '%s %s %s\n' "$(date "$FMT")" created_file "$@" >> $LOG
 	else
-		echo "$(date "$FMT") info $@" >> $LOG
+		printf '%s %s %s' "$(date "$FMT")" info "$@" >> $LOG
 	fi
 }
 EOF
@@ -386,9 +387,9 @@ run_installer() {
 		
 		if [ -z "$PV_MAN" ]; then
 			PV_MAN="$PV_DATA/man"
-			mkdir -p $PV_MAN/man{1,8}
 			echo "MANDATORY_MANPATH $PV_MAN" > "$HOME/.manpath"
 		fi
+		create_dir "$PV_MAN"/man{1,8}
 
 		# bash-completion 2.9 introduced ${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion.d
 		if command -v rpm &>/dev/null; then
