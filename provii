@@ -340,6 +340,11 @@ run_installer() {
 
 	[ ! "$SUMMARIZE" ] && create_dir "$PROVII_CACHE"
 	PROVII_LOG=$PROVII_CACHE/run.log
+	
+	case  "$(ldd --version 2>&1 | head -1 | tr [:upper:] [:lower:])" in
+		*musl*) PROVII_LIBC=musl ;;
+		*gnu*) PROVII_LIBC=gnu ;;
+	esac
 
 	# see, https://en.wikipedia.org/wiki/Uname#Examples
 	PROVII_SYSTEM="$( uname -s | tr [:upper:] [:lower:] )"
@@ -481,6 +486,7 @@ done' "$PV_BASH_COMP" >> "$PV_BASH_CONFIG"
 		${PV_ZSH_COMP:+ZSH_COMP="$PV_ZSH_COMP"} \
 		${PROVII_CACHE:+CACHE="${PV_TMP:-$PROVII_CACHE}"} \
 		${PROVII_LOG:+LOG="$PROVII_LOG"} \
+		${PROVII_LIBC:+LIBC="$PROVII_LIBC"} \
 		${PROVII_MACHINE:+ARCH="$PROVII_MACHINE"} \
 		${PROVII_SYSTEM:+OS="$PROVII_SYSTEM"} \
 		${UNDERLINE:+UNDERLINE="$UNDERLINE"} \

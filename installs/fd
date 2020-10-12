@@ -3,7 +3,7 @@
 # a simple, fast and user-friendly alternative to find
 # https://github.com/sharkdp/fd
 
-github sharkdp/fd "$ARCH.*$OS.*gnu.*gz$"
+github sharkdp/fd "$ARCH.*$OS.*$LIBC.*gz$"
 tar -xf ./* --strip=1 
 
 install fd

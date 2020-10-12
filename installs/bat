@@ -3,7 +3,7 @@
 # a cat clone with wings
 # https://github.com/sharkdp/bat
 
-github sharkdp/bat "$ARCH.*$OS.*gnu.*gz"
+github sharkdp/bat "$ARCH.*$OS.*$LIBC.*gz"
 tar -xf ./* --strip=1
 
 install bat
