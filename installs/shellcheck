@@ -4,6 +4,6 @@
 # https://github.com/koalaman/shellcheck
 
 github koalaman/shellcheck "$OS.*$ARCH.*xz$"
-tar -xJf ./*
+tar -xJf --strip=1 ./*
 
 install shellcheck
