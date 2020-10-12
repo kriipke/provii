@@ -36,9 +36,9 @@ create_dir() {
 }
 
 get_installer() {
-	printf -v GITHUB_QUERY "https://api.github.com%s%s" \
+	GITHUB_QUERY="$( printf 'https://api.github.com%s%s' \
 		"/repos/l0xy/provii/contents/installs/$INSTALLER" \
-		"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}"
+		"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}" )"
 	curl -sSL "$GITHUB_QUERY" \
 		| jq '.download_url' \
 		| xargs curl -sSL
@@ -286,7 +286,7 @@ EOF
 
 PRINT_VARIABLES="$(cat <<-'EOF'
 env \
-	| grep "^\(OS\|SCOPE\|BASH_COMP\|ZSH_COMP\|MAN\|NAME\|CACHE\|CFG\|ARCH\|BIN\|SYSD\|LOG\)=" \
+	| grep "^\(OS\|SCOPE\|LIBC\|BASH_COMP\|ZSH_COMP\|MAN\|NAME\|CACHE\|CFG\|ARCH\|BIN\|SYSD\|LOG\)=" \
 	| awk -v ul="$UNDERLINE" -v mg="${MAGENTA}" -v no_style="$STYLE_RESET" '
 		BEGIN {
 			FS="="
@@ -300,7 +300,7 @@ env \
 			else context="GLOBAL"
 			printf "\n%sprovii: %s%s\n", ul, context, no_style
 
-			general_keys	= "NAME OS ARCH"
+			general_keys	= "NAME OS ARCH LIBC"
 			dirs_keys		= "BIN MAN BASH_COMP ZSH_COMP SYSD"
 			meta_keys 		= "SCOPE CACHE LOG"
 
@@ -396,6 +396,18 @@ run_installer() {
 		fi
 		create_dir "$PV_MAN"/man{1,8}
 
+		if command -v zsh >/dev/null 2>&1; then
+			if [ -n "$fpath" ]; then
+				ZSH_USER_COMP_DIR="$( printf '%s.*completions' "$HOME" )"
+				ZSH_USER_CUSTOM_DIR="$( printf '%s.*custom' "$HOME" )"
+				if ( echo "$fpath" | grep -qi "$ZSH_USER_COMP_DIR" ); then
+					PV_ZSHi_COMP="$ZSH_USER_COMP_DIR"
+				elif ( echo "$fpath" | grep -qi "$ZSH_USER_CUSTOM_DIR" ); then
+					PV_ZSH_COMP="$ZSH_USER_CUSTOM_DIR"
+				fi
+			fi
+		fi
+
 		# bash-completion 2.9 introduced ${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion.d
 		if command -v rpm &>/dev/null; then
 			QUERYPKG_CMD_FMT='rpm -qa --queryformat %s  name=%s'
@@ -437,9 +449,6 @@ done' "$PV_BASH_COMP" >> "$PV_BASH_CONFIG"
 			fi
 		fi
 
-		if command -v zsh >/dev/null 2>&1; then
-			PV_ZSH_COMP=${USER_ZSH_COMP-$ZSH_CUSTOM}
-		fi
   else
     err 'scope of the installation could not be determined..'
   fi
