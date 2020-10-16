@@ -7,6 +7,13 @@ github sharkdp/fd "$ARCH.*$OS.*$LIBC.*gz$"
 tar -xf ./* --strip=1 
 
 install fd
-[ $MAN ] && cp fd.1 $MAN/man1/fd.1
-[ $ZSH_COMP ] && cp autocomplete/_fd $ZSH_COMP/
-[ $BASH_COMP ] && cp autocomplete/fd.bash-completion $BASH_COMP/
+
+if [ $MAN ]; then
+	cp fd.1 $MAN/man1/fd.1
+fi
+if [ $ZSH_COMP ]; then
+	cp autocomplete/_fd $ZSH_COMP/
+fi
+if [ $BASH_COMP ]; then
+	cp autocomplete/fd.bash-completion $BASH_COMP/
+fi

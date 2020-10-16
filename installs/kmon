@@ -7,4 +7,7 @@ github orhun/kmon "$NAME.*gz$"
 tar -xf ./*
 
 install kmon
-[ $MAN ] && cp man/kmon.8 $MAN/man8/
+
+if [ $MAN ]; then
+	cp man/kmon.8 $MAN/man8/
+fi

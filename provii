@@ -6,7 +6,7 @@ if [ "$DEBUG" ]; then
 	PS4='${TAB}${MAGENTA}provii.sh $LINENO ::${STYLE_RESET} '
 fi
 
-PROVII_BRANCH=docs-comps
+PROVII_BRANCH=
 
 if command -v tput >/dev/null 2>&1; then
 	TAB="$(tput ht 2>/dev/null || echo '')"

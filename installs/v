@@ -5,4 +5,7 @@
 
 github rupa/v 
 install v
-[ $MAN ] && cp v.1 $MAN/man1/
+
+if [ $MAN ]; then
+	cp v.1 $MAN/man1/
+fi

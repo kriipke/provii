@@ -7,6 +7,8 @@ github antonmedv/fx "$NAME.*$OS"
 unzip -d bin/ ./* >/dev/null
 
 install bin/fx* $BIN/fx
-[ $BASH_COMP ] \
-	&& github antonmedv/fx-completion/complete.sh \
-	&& cp complete.sh $BASH_COMP/fx.bash-completion
+
+if [ $BASH_COMP ]; then
+	github antonmedv/fx-completion/complete.sh
+	cp complete.sh $BASH_COMP/fx.bash-completion
+fi

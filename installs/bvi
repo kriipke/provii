@@ -11,9 +11,11 @@ URL=$(printf 'https://%s/%s/%s' $URL_{FQDN,DIRS,FILE})
 curl -#L $URL | tar -xzf - --strip=1
 
 install bvi
-cp bvi.man $MAN/man1/
-
 install bmore
-cp bmore.man $MAN/man1/
+
+if [ $MAN ]; then
+	cp bvi.man $MAN/man1/
+	cp bmore.man $MAN/man1/
+fi
 
 

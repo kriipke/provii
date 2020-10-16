@@ -8,8 +8,9 @@ tar -xf ./* --strip=1
 
 install lsd
 
-[ $BASH_COMP ] \
-	&& cp autocomplete/lsd.bash-completion $BASH_COMP/
-
-[ $ZSH_COMP ] \
-	&& cp autocomplete/_lsd $ZSH_COMP/
+if [ $BASH_COMP ]; then
+	cp autocomplete/lsd.bash-completion $BASH_COMP/
+fi
+if [ $ZSH_COMP ]; then
+	cp autocomplete/_lsd $ZSH_COMP/
+fi
