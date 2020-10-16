@@ -554,10 +554,10 @@ run_installer() {
 	[ -d "$USER_CACHE" ] && [ -w "$USER_CACHE" ] \
 		&& PROVII_CACHE="$USER_CACHE/provii" \
 		|| PROVII_CACHE=/tmp/provii
-	create_dir "$PROVII_CACHE"
-
+	
+	# create_dir will fail unless $PROVII_LOG is defined first
+	PROVII_LOG=${PROVII_LOG:-$PROVII_CACHE/run.log}
 	[ ! "$SUMMARIZE" ] && create_dir "$PROVII_CACHE"
-	PROVII_LOG=$PROVII_CACHE/run.log
 	
 	case  "$(ldd --version 2>&1 | head -1 | tr [:upper:] [:lower:])" in
 		*musl*) PROVII_LIBC=musl ;;

@@ -4,9 +4,9 @@
 # https://fx.wtf
 
 github antonmedv/fx "$NAME.*$OS"
-unzip -d bin/ ./*
+unzip -d bin/ ./* >/dev/null
 
-install bin/fx-$OS $BIN/fx
+install bin/fx* $BIN/fx
 [ $BASH_COMP ] \
 	&& github antonmedv/fx-completion/complete.sh \
 	&& cp complete.sh $BASH_COMP/fx.bash-completion

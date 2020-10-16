@@ -9,8 +9,8 @@ tar -xzf ./* --strip=1
 install rg
 
 [ $MAN ] \
-	&& doc/rg.1 $MAN/man1/ 
+	&& cp doc/rg.1 $MAN/man1/ 
 [ $BASH_COMP ] \
-	&& complete/rg.bash $BASH_COMP/rg.bash-completion
+	&& cp complete/rg.bash $BASH_COMP/rg.bash-completion
 [ $ZSH_COMP ] \
-	&& complete/_rg $ZSH_COMP/
+	&& cp complete/_rg $ZSH_COMP/

@@ -4,7 +4,7 @@
 # https://github.com/Peltoche/lsd
 
 github Peltoche/lsd "$NAME.*$ARCH.*$OS.*$LIBC.*gz$"
-tar -xf --strip=1 ./* 
+tar -xf ./* --strip=1 
 
 install lsd
 

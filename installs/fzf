@@ -10,7 +10,7 @@ install fzf
 
 [ $BASH_COMP ] \
 	&& github junegunn/fzf/shell/completion.bash \
-	&& cp shell/completion.bash $BASH_COMP/$NAME.completion.bash
+	&& cp shell/completion.bash $BASH_COMP/$NAME.bash-completion
 
 [ $ZSH_COMP ] \
 	&& github junegunn/fzf/shell/completion.zsh \
@@ -18,4 +18,4 @@ install fzf
 
 [ $MAN ] \
 	&& github junegunn/fzf/man/man1/fzf.1 \
-	&& cp fzf.1 $MAN/man1/
+	&& cp man/man1/fzf.1 $MAN/man1/

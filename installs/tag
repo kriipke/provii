@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+# tool for using extended attributes to tag files with
+# simple labels or key/value pairs for easy organization
+# https://l0xy.sh/code/tagger
+
+github l0xy/tagger/tag
+install tag
