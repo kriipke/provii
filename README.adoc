@@ -13,7 +13,11 @@ For example, during a typical install of `fd`, an alternative to the `find` tool
 For more information on where these files are installed and how that location is determined see <<Configuration>> below.
 
 [NOTE]
-All the software's installed via provii come _directly from their authors_, e.g. the official Github repository or the official SourceForge page. So you can feel safe installing all these softwares using provii. The goal of provii is to save you the 5-6 steps you would typically have to take to download the most recent release from the author, unarchive it, and copy the binary & man pages / shell completions to the right folders. In other words, provii is designed to do exactly what _you_ would do, but automated.
+====
+All the software's installed via provii come _directly from their authors_, e.g. the official Github repository or the official SourceForge page. So you can feel safe installing all these softwares using provii.
+
+The goal of provii is to save you the 5-6 steps you would typically have to take to download the most recent release from the author, unarchive it, and copy the binary & man pages / shell completions to the right folders. In other words, provii is designed to do exactly what _you_ would do, but automated.
+====
 
 == Usage
 
@@ -38,27 +42,8 @@ The `install` subcommand is the crux of provii as this is how you install the co
 
 image::examples/provii_install.png[provii install fd]
 
+
 For more information, run `provii install -h`.
-
-==== `provii ls`
-
-The `ls` subcommand allows you to print all the command-line tools avaliable for installation via provii. Example output:
-
-image::examples/provii_ls.png[provii ls]
-
-Alternatively you can browse the installers avaliable at: https://github.com/l0xy/provii/tree/master/installs
-
-For more information, run `provii ls -h`.
-
-==== `provii cat`
-
-The `cat` subcommand takes the name of an installer as an argument and prints the actual script that will be run without running it. Example output of `provii cat fd`:
-
-image::examples/provii_cat.png[provii cat fd]
-
-Note that unless you are writing a provii installer yourself or are doing debugging, you really don't need to know anything about the script or how it works unless you just want to make sure you're not running anything malicious.
-
-For more information, run `provii cat -h`.
 
 ==== `provii env`
 
@@ -66,7 +51,31 @@ The `env` subcommand takes an optional argument, an installer name, and is meant
 
 image::examples/provii_env.png[provii env fd]
 
+
 For more information, run `provii env -h`.
+
+==== `provii ls`
+
+The `ls` subcommand allows you to print all the command-line tools avaliable for installation via provii. Example output:
+
+image::examples/provii_ls.png[provii ls]
+
+
+For more information, run `provii ls -h`.
+
+[NOTE]
+Alternatively, you can browse the installers avaliable using your browser at https://github.com/l0xy/provii/tree/master/installs
+
+==== `provii cat`
+
+The `cat` subcommand takes the name of an installer as an argument and prints the actual script that will be run without running it. Example output of `provii cat fd`:
+
+image::examples/provii_cat.png[provii cat fd]
+
+
+Note that unless you are writing a provii installer yourself or are doing debugging, you really don't need to know anything about the script or how it works unless you just want to make sure you're not running anything malicious.
+
+For more information, run `provii cat -h`.
 
 == How it works
 
