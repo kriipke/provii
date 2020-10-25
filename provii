@@ -19,6 +19,28 @@ if command -v tput >/dev/null 2>&1; then
 	fi
 fi
 
+install_jq() {
+	case "$(uname -s)" in
+	darwin)
+		JQ_URL='https://github.com/stedolan/jq/releases/download/jq-1.6/jq-osx-amd64'
+		;;
+	linux)
+		case "$(uname -m)" in
+		x86_64 | amd64 | aarch64)
+			JQ_URL='https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64'
+			;;
+		i386 | i586 | i686)
+			JQ_URL='https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux32'
+			;;
+		esac
+		;;
+	esac
+
+	[ -d "$HOME/.local/bin" ] && create_dir "$HOME/.local/bin"
+	curl -sSLo "$HOME/.local/bin/jq" "$JQ_URL"
+	JQ="$(command -v jq || "$HOME/.local/bin/jq")"
+}
+
 create_dir() {
 	for dir in "$@"; do
 		if [ ! -d "$dir" ] && [ -w "$(dirname "$dir")" ]; then
@@ -130,7 +152,7 @@ get_installer() {
 		"/repos/l0xy/provii/contents/installs/$INSTALLER" \
 		"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}")"
 	curl -sSL "$GITHUB_QUERY" |
-		jq '.download_url' |
+		"$JQ" '.download_url' |
 		xargs curl -sSL
 }
 
@@ -175,7 +197,7 @@ ls_installers() {
 						$2,
 						url_color, $3, url_end_style)
 				}'
-	done < <(curl -sSL "$GITHUB_QUERY_LS" | jq -r "$JQ_QUERY" | tr -d '"')
+	done < <(curl -sSL "$GITHUB_QUERY_LS" | "$JQ" -r "$JQ_QUERY" | tr -d '"')
 }
 
 set_pv_bin() {
@@ -282,9 +304,9 @@ set_pv_zsh_comp() {
 	system)
 		if command -v zsh >/dev/null 2>&1; then
 			if [ -n "$fpath" ]; then
-				if (echo "$fpath" | grep -v $HOME | grep -qi completions); then
+				if (echo "$fpath" | grep -v "$HOME" | grep -qi completions); then
 					PV_ZSH_COMP="$ZSH_USER_COMP_DIR"
-				elif (echo "$fpath" | grep -v $HOME | grep -qi custom); then
+				elif (echo "$fpath" | grep -v "$HOME" | grep -qi custom); then
 					PV_ZSH_COMP="$ZSH_USER_CUSTOM_DIR"
 				fi
 			fi
@@ -347,17 +369,17 @@ fn___dl_github_asset=$(
 	cat <<'EOF'
 BASH_FUNC___dl_github_asset%%=() {
 	local RE FQDN URI URL RELEASE MSG
-
+	
 	FQDN='https://api.github.com'
 	RELEASE="${3+tags/$3}"
 	RE="${2//\\/\\\\}"
 	URI="/repos/$1/releases/${RELEASE:-latest}"
 
 	JQ_CMD='[.assets[] | { asset:.name, url:.browser_download_url }]'
-	ASSETS="$( curl -sSL "$FQDN$URI" | jq "$JQ_CMD" )"
+	ASSETS="$( curl -sSL "$FQDN$URI" | "$JQ" "$JQ_CMD" )"
 
 	JQ_CMD=$( printf '.[] | select( .asset | test("%s")).url' "$RE" )
-	URL=$( echo "$ASSETS" | jq -r "$JQ_CMD" )
+	URL=$( echo "$ASSETS" | "$JQ" -r "$JQ_CMD" )
 
 	if [ "$(echo "$URL" | wc -w)" -gt 1 ]; then
 		SUBMSG=$(printf \
@@ -365,14 +387,14 @@ BASH_FUNC___dl_github_asset%%=() {
 			"${CYAN}${RE}${STYLE_RESET}" )
 
 		JQ_CMD=$( printf '.[] | select( .asset | test("%s")).asset' "$RE" )
-		ASSET_NAMES=$( echo "$ASSETS" | jq -r "$JQ_CMD" )
+		ASSET_NAMES=$( echo "$ASSETS" | "$JQ" -r "$JQ_CMD" )
 
 		MSG="$( printf '%s Assets matched:\n\n%s\n' "$SUBMSG" "$ASSET_NAMES" )"
 		err "$MSG"
 	elif [ -z "$URL" ]; then
 		SUBMSG=$( printf 'No Github asset found for %s that matches: %s' \
 			"$1" "${CYAN}$RE${STYLE_RESET}" )
-		ASSET_NAMES="$( echo "$ASSETS" | jq -r '.[].asset_name' )"
+		ASSET_NAMES="$( echo "$ASSETS" | "$JQ" -r '.[].asset_name' )"
 		MSG="$( printf '%s\nAssets found for %s:\n\n%s' \
 			"$SUBMSG" "${CYAN}$1${STYLE_RESET}" "$ASSET_NAMES" )"
 		err "$MSG"
@@ -406,7 +428,7 @@ BASH_FUNC___dl_github_file__%%=() {
 		printf '\n%s/%s\n' "$PWD" "${CYAN}${URL##*/}${STYLE_RESET}"
 		curl -#L -o "$FILE" "$URL"
 
-	done < <( curl -sSL "$URI" | jq -r '
+	done < <( curl -sSL "$URI" | "$JQ" -r '
 		if type == "object" 
 		then .path,.download_url 
 		else .[] | .path, .download_url
@@ -419,6 +441,9 @@ fn_github=$(
 	cat <<'EOF'
 BASH_FUNC_github%%=() {
 	local REPO BRANCH PATH_TO_FILE ASSET_RE
+	JQ="$( command -v jq || "$HOME/.local/bin/jq" )"
+	export JQ
+
 	PATH_TO_FILE=$(echo "$1" | cut -d/ -f3-)
 	REPO=$(echo "$1" | cut -d/ -f-2)
 
@@ -464,9 +489,9 @@ EOF
 log() {
 	FMT='+%Y-%m-%d %T'
 	if [ "$1" == '--created' ]; then
-		shift && printf '%s %s %s\n' "$(date "$FMT")" created_file "$@" >>$PROVII_LOG
+		shift && printf '%s %s %s\n' "$(date "$FMT")" created_file "$@" >>"$PROVII_LOG"
 	else
-		printf '%s %s %s' "$(date "$FMT")" info "$@" >>$PROVII_LOG
+		printf '%s %s %s' "$(date "$FMT")" info "$@" >>"$PROVII_LOG"
 	fi
 }
 
@@ -568,13 +593,13 @@ run_installer() {
 	PROVII_LOG=${PROVII_LOG:-$PROVII_CACHE/run.log}
 	[ ! "$SUMMARIZE" ] && create_dir "$PROVII_CACHE"
 
-	case "$(ldd --version 2>&1 | head -1 | tr [:upper:] [:lower:])" in
+	case "$(ldd --version 2>&1 | head -1 | tr "[:upper:]" "[:lower:]")" in
 	*musl*) PROVII_LIBC=musl ;;
 	*gnu* | *glibc*) PROVII_LIBC=gnu ;;
 	esac
 
 	# see, https://en.wikipedia.org/wiki/Uname#Examples
-	PROVII_SYSTEM="$(uname -s | tr [:upper:] [:lower:])"
+	PROVII_SYSTEM="$(uname -s | tr "[:upper:]" "[:lower:]")"
 	case "$(uname -m)" in
 	amd64 | x86_64)
 		PROVII_MACHINE='(x86_64|amd64)'
@@ -606,14 +631,14 @@ run_installer() {
 	if [ "$INSTALLER" ]; then
 		PV_TMP="$PROVII_CACHE/$INSTALLER"
 		create_dir "$PV_TMP" || exit 1
-		rm -rf "$PV_TMP"/*
+		rm -rf "${PV_TMP:?}"/*
 	fi
 
 	case *:$PATH:* in
 	*:$PV_BIN:*) ;;
 
 	*)
-		[ -z $SUDO_USER ] && warn "$PV_BIN" temporarily added \
+		[ -z "$SUDO_USER" ] && warn "$PV_BIN" temporarily added \
 			to PATH, manually add it to your shell configuration
 		;;
 	esac
@@ -651,6 +676,12 @@ run_installer() {
 		"$fn_err" \
 		bash ${DEBUG+-x} -e -c "$SCRIPTLET"
 }
+
+if command -v jq >/dev/null 2>&1; then
+	JQ="$( command -v jq )"
+else
+	install_jq
+fi
 
 if [ "$(basename "$0")" != 'provii' ]; then
 	run_installer "$(basename "$0")"
@@ -691,17 +722,24 @@ else
 			;;
 		-b | --branch)
 			shift
-			[ -n "$1" ] &&
-				PROVII_BRANCH="$1" ||
+
+			if [ -n "$1" ]; then
+				PROVII_BRANCH="$1"
+			else
 				print_usage 'cat'
-			[ -n "$2" ] &&
-				INSTALLER="$2" ||
+			fi
+			if [ -n "$2" ]; then
+				INSTALLER="$2"
+			else
 				print_usage 'cat'
+			fi
 			;;
 		*)
-			[ -n "$1" ] &&
-				INSTALLER="$1" ||
+			if [ -n "$1" ]; then
+				INSTALLER="$1"
+			else
 				print_usage 'cat'
+			fi
 			;;
 		esac
 		if command -v bat >/dev/null 2>&1; then
