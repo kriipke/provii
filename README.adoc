@@ -125,42 +125,37 @@ variables defined independently of the value of `$PROVII_SCOPE`::
 variables whose value is dependent upon the value of `$PROVII_SCOPE`::
   `$BIN`:::
   . `$PROVII_BIN` defined
-  .. _when run as root_
-    * `PROVII_BIN=/usr/local/bin`
-  .. _when run as regular user_
-    * `PROVII_BIN=~/.local/bin`
+  .. _when run as root_, `PROVII_BIN=/usr/local/bin`
+  .. _when run as regular user_, `PROVII_BIN=~/.local/bin`
   . when passed to subshell, `$PROVII_BIN` -> `$BIN`
   `$MAN`:::
   . `$PROVII_MAN` defined
   .. _when run as root_
-    - if `/usr/share/man` listed in output of `manpath`, then `/usr/share/man` -> `$PROVII_MAN`
-    - elif, first directory listed in the output of `manpath` -> `$PROVII_MAN`
-	- else, `$PROVII_MAN` remains unset
+    ... if `/usr/share/man` listed in output of `manpath`, then `/usr/share/man` -> `$PROVII_MAN`
+    ... elif, first directory listed in the output of `manpath` -> `$PROVII_MAN`
+	... else, `$PROVII_MAN` remains unset
   .. _regular user_
-    - if `~/.local/share/man` listed in output of `manpath`, then `~/.local/share/man` -> `$PROVII_MAN`
-    - elif, first directory listed in the output of `manpath` prefixed with `$HOME` -> `$PROVII_MAN`
-	- else, `$PROVII_MAN` remains unset
+    ... if `~/.local/share/man` listed in output of `manpath`, then `~/.local/share/man` -> `$PROVII_MAN`
+    ... elif, first directory listed in the output of `manpath` prefixed with `$HOME` -> `$PROVII_MAN`
+	... else, `$PROVII_MAN` remains unset
   . when passed to subshell, _if `$PROVII_MAN` was set_ `$PROVII_MAN` -> `$MAN`
   `$ZSH_COMP`:::
   . `$PROVII_ZSH_COMP` defined
   .. _when run as root_
-    * if first directory contained in the value of `$fpath` containing `completion` prefixed with `/usr` or `/etc` -> `$PROVII_ZSH_COMP`
-    * elif, first directory contained in the value of `$fpath` containing `custom` prefixed with `/usr` or `/etc` -> `$PROVII_ZSH_COMP`
-	* else, `$PROVII_ZSH_COMP` remains unset
+    ... if first directory contained in the value of `$fpath` containing `completion` prefixed with `/usr` or `/etc` -> `$PROVII_ZSH_COMP`
+    ... elif, first directory contained in the value of `$fpath` containing `custom` prefixed with `/usr` or `/etc` -> `$PROVII_ZSH_COMP`
+	... else, `$PROVII_ZSH_COMP` remains unset
   .. _when run as regular user_
-    * if first directory contained in the value of `$fpath` containing `completion` prefixed with `$HOME` -> `$PROVII_ZSH_COMP`
-    * elif, first directory contained in the value of `$fpath` containing `custom` prefixed with `$HOME` -> `$PROVII_ZSH_COMP`
-	* else, `$PROVII_ZSH_COMP` remains unset
+    ... if first directory contained in the value of `$fpath` containing `completion` prefixed with `$HOME` -> `$PROVII_ZSH_COMP`
+    ... elif, first directory contained in the value of `$fpath` containing `custom` prefixed with `$HOME` -> `$PROVII_ZSH_COMP`
+	... else, `$PROVII_ZSH_COMP` remains unset
   . when passed to subshell,  _if `$PROVII_ZSH_COMP` was set_ `$PROVII_ZSH_COMP` -> `$ZSH_COMP`
   `$BASH_COMP`:::
   . `$PROVII_BASH_COMP` defined
-  .. _when run as root_
-    * `PROVII_BASH_COMP=/etc/bash_completion.d`
+  .. _when run as root_, `PROVII_BASH_COMP=/etc/bash_completion.d`
   .. _when run as regular user_
-    . when `bash-completion` version >= 2.9,
-  	* `$PROVII_BASH_COMP=~/bash-completion.d`
-    . when `bash-completion` version < 2.9,
-  	* `PROVII_BASH_COMP=${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion.d`
+    ... when `bash-completion` version >= 2.9, `PROVII_BASH_COMP=~/bash-completion.d`
+    ... when `bash-completion` version < 2.9, `PROVII_BASH_COMP=${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion.d`
   . when passed to subshell, `$PROVII_BASH_COMP` -> `$BASH_COMP`
 
 == Configuration
