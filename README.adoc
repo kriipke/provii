@@ -1,6 +1,8 @@
 = provii
 
-`provii` is a bash script tool to painlessly download your favorite command-line utilities on a machine that that may be missing them. The script itself is hosted at http://l0xy.sh/provii. `provii` works by first gathering the necessisary fact about the system its running on to install the pre-built binary (as well as man pages & shell completions if available), and then fetching & running the appropriate installion scripts hosted in provii's github repository in the link:https://github.com/l0xy/provii/tree/master/installs[installs directory].
+`provii` is a tool to painlessly download your favorite command-line utilities as pre-compiled binaries on a machine that that may be missing them. It is a convenient alternative when you do not have the premissions required to install software using the systems package manager or when you do not wish to install the software system-wide. The script itself is hosted both at http://l0xy.sh/provii and on link::https://raw.github.com/l0xy/provii/master/provii[Github] and the list of installers availaible via `provii` can be found at link::https://github.com/l0xy/provii/tree/master/installs[github.com/l0xy/provii/tree/master/installs] (or listed using `provii` itself, see <<provii ls,`provii ls`>>)
+
+`provii` works by gathering the necessary information about the system its running on to install the pre-built binary (as well as man pages & shell completions if available), and then fetching & running the appropriate installion scripts hosted in provii's github repository in the link:https://github.com/l0xy/provii/tree/master/installs[installs directory].
 
 When gathering facts, provii intelligently determines the relevant settings based on, most imporarntly, whether it was run with root privilages or not along with things like operating system, processor type & installed version of `libc`.
 
@@ -14,16 +16,18 @@ For more information on where these files are installed and how that location is
 
 [NOTE]
 ====
-All the software's installed via provii come _directly from their authors_, e.g. the official Github repository or the official SourceForge page. So you can feel safe installing all these softwares using provii.
+All the software's installed via provii come *directly from their authors*, e.g. the official Github repository or the official SourceForge page. So you can feel as safe installing all these softwares using provii as you would going to the project's home page and downloading them yourself.
+====
 
 The goal of provii is to save you the 5-6 steps you would typically have to take to download the most recent release from the author, unarchive it, and copy the binary & man pages / shell completions to the right folders. In other words, provii is designed to do exactly what _you_ would do, but automated.
-====
+
+If you would like to add your piece of software to the list of installers avaliable via provii, either make a pull request or contact me.
 
 == Usage
 
 === Method 1: curl `provii` directly into bash
 
-The easiest way to use provii is to curl the script and pipe it directly into bash. For example, to download the tool `fd` , you would run:
+The simplest way to use provii is to curl the script directly into bash. For example, to download the tool `fd`, you would simply run:
 
 [source,bash]
 bash -c "$( curl l0xy.sh/provii )" fd
