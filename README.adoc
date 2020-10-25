@@ -95,14 +95,13 @@ Variables defined in a `proviirc` file, should one exist on the machine, will no
 
 variables whose value is dependent upon the value of `$PROVII_SCOPE`::
   `$BIN`:::
-  1a. _when run as root_
+  1. _when run as root_
     * `PROVII_BIN=/usr/local/bin`
-  1b. _when run as regular user_
+  1. _when run as regular user_
     * `PROVII_BIN=~/.local/bin`
   2. `$PROVII_BIN` -> `$BIN`
   `$MAN`:::
-  . _when run as..._
-  .. _root_
+  .. _when run as root_
     - if `/usr/share/man` listed in output of `manpath`, then `/usr/share/man` -> `$PROVII_MAN`
     - else, first directory listed in the output of `manpath` -> `$PROVII_MAN`
   .. _regular user_
