@@ -50,8 +50,8 @@ OPTIONS:
 -v, --verbose   prints various information depending on subcommand'
 	else
 		case "$1" in
-			install)
-				echo '
+		install)
+			echo '
 Usage: provii install UTILITY
 
 For a list of possible utilities see:
@@ -62,9 +62,9 @@ To see the script that will be run by provii install run:
 
 To view the values that will be used in the variables defined in the script run:
 	provii env UTILITY'
-				;;
-			env)
-				echo '
+			;;
+		env)
+			echo '
 Usage: provii env [UTILITY]
 
 When run without any arguments provii env will show the variables 
@@ -103,44 +103,43 @@ variables will also be shown:
 $NAME    - the name of the command/binary file
 $CACHE   - the subdirectory within the main $CACHE for any files 
            generated during the installation of $NAME'
-				;;
-			cat)
-				echo '
+			;;
+		cat)
+			echo '
 Usage: provii cat UTILITY
 
 Prints the entire script that is execute when `provii install UTILITY` is run'
-				;;
-			ls)
-				echo '
+			;;
+		ls)
+			echo '
 Usage: provii ls
 
 Prints out all possible utilities that can be installed
 with provii along with a brief description.'
-				;;
-			*)
-				print_usage
-				;;
+			;;
+		*)
+			print_usage
+			;;
 		esac
 	fi
 	exit
 }
 
 get_installer() {
-	GITHUB_QUERY="$( printf 'https://api.github.com%s%s' \
+	GITHUB_QUERY="$(printf 'https://api.github.com%s%s' \
 		"/repos/l0xy/provii/contents/installs/$INSTALLER" \
-		"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}" )"
-	curl -sSL "$GITHUB_QUERY" \
-		| jq '.download_url' \
-		| xargs curl -sSL
+		"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}")"
+	curl -sSL "$GITHUB_QUERY" |
+		jq '.download_url' |
+		xargs curl -sSL
 }
 
 ls_installers() {
-	GITHUB_QUERY_LS="$( printf \
+	GITHUB_QUERY_LS="$(printf \
 		"https://api.github.com/repos/l0xy/provii/contents/installs%s" \
 		"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}")"
-	JQ_QUERY='.[] | [ .name, .download_url ] | @csv' 
+	JQ_QUERY='.[] | [ .name, .download_url ] | @csv'
 
-	
 	while IFS=',' read -r SOFTWARE_NAME SCRIPTLET_URL; do
 		curl -sSL "$SCRIPTLET_URL" | awk -v name="$SOFTWARE_NAME" '
 				BEGIN{ RS=""; FS="\n"; OFS="\n"; ORS=""}
@@ -176,137 +175,139 @@ ls_installers() {
 						$2,
 						url_color, $3, url_end_style)
 				}'
-	done < <( curl -sSL "$GITHUB_QUERY_LS" | jq -r "$JQ_QUERY" | tr -d '"')
+	done < <(curl -sSL "$GITHUB_QUERY_LS" | jq -r "$JQ_QUERY" | tr -d '"')
 }
 
 set_pv_bin() {
 	case "$PROVII_SCOPE" in
-		system) PV_BIN=${SYS_BIN-/usr/local/bin} ;;
-			user) PV_BIN=${USER_BIN-$HOME/.local/bin} ;;
+	system) PV_BIN=${SYS_BIN-/usr/local/bin} ;;
+	user) PV_BIN=${USER_BIN-$HOME/.local/bin} ;;
 	esac
 	create_dir "${PV_BIN:?'Failed to set variable $BIN'}"
 }
 
 set_pv_data() {
 	case "$PROVII_SCOPE" in
-		system) PV_DATA=${SYS_DATA-/usr/local/share} ;;
-			user) PV_DATA=${USER_DATA-$HOME/.local/share} ;;
+	system) PV_DATA=${SYS_DATA-/usr/local/share} ;;
+	user) PV_DATA=${USER_DATA-$HOME/.local/share} ;;
 	esac
 	create_dir "${PV_DATA:?'Failed to set variable $DATA'}"
 }
 
 set_pv_man() {
 	case "$PROVII_SCOPE" in
-		system)
-			if command -v manpath &>/dev/null; then
-				for MAN_PATH in $(manpath -g | tr : $'\n'); do
-					if [ -d "$MAN_PATH" ] && [ -w "$MAN_PATH" ]; then
-						PV_MAN="$MAN_PATH"
-						break
-					fi
-				done
-			fi
-			;;
-		user)
-			if command -v manpath &>/dev/null; then
-				PV_MAN=${USER_MAN-"$(manpath | tr : $'\n' | grep -m 1 "$HOME")"}
-			fi
-			if [ -z "$PV_MAN" ]; then
-				PV_MAN="$PV_DATA/man"
-				echo "MANDATORY_MANPATH $PV_MAN" > "$HOME/.manpath"
-			fi
-			create_dir "$PV_MAN"/man{1,8}
-			;;
+	system)
+		if command -v manpath &>/dev/null; then
+			for MAN_PATH in $(manpath -g | tr : $'\n'); do
+				if [ -d "$MAN_PATH" ] && [ -w "$MAN_PATH" ]; then
+					PV_MAN="$MAN_PATH"
+					break
+				fi
+			done
+		fi
+		;;
+	user)
+		if command -v manpath &>/dev/null; then
+			PV_MAN=${USER_MAN-"$(manpath | tr : $'\n' | grep -m 1 "$HOME")"}
+		fi
+		if [ -z "$PV_MAN" ]; then
+			PV_MAN="$PV_DATA/man"
+			echo "MANDATORY_MANPATH $PV_MAN" >"$HOME/.manpath"
+		fi
+		create_dir "$PV_MAN"/man{1,8}
+		;;
 	esac
 }
-			
+
 set_pv_bash_comp() {
 	case "$PROVII_SCOPE" in
-		system) 
-			PV_BASH_COMP=${SYS_BASH_COMP-/etc/bash_completion.d}
-			if command -v manpath &>/dev/null; then
-				for MAN_PATH in $(manpath -g | tr : $'\n'); do
-					if [ -d "$MAN_PATH" ] && [ -w "$MAN_PATH" ]; then
-						PV_MAN="$MAN_PATH"
-						break
-					fi
-				done
-			fi
-			;;
-		user)
-			# bash-completion 2.9 introduced ${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion.d
-			if command -v rpm &>/dev/null; then
-				QUERYPKG_CMD_FMT='rpm -qa --queryformat %s  name=%s'
-			elif command -v dpkg-query &>/dev/null; then
-				QUERYPKG_CMD_FMT='dpkg-query --showformat=%s --show %s'
-			fi
-
-			if [ "$QUERYPKG_CMD_FMT" ]; then
-				BASH_COMP_VER="$($(printf "$QUERYPKG_CMD_FMT" '%{VERSION}\n' 'bash-completion' ))"
-			else
-				warn "Could not locate either rpm / dkpg-query command to determine version of bash-completion"
-			fi
-
-			if [ -n "$BASH_COMP_VER" ]; then
-				XDG_ENABLED_BASH_COMP_VER='2.9'
-				if [ "${BASH_COMP_VER//./}" -ge "${XDG_ENABLED_BASH_COMP_VER//./}" ] \
-				&& [ -n "$XDG_DATA_HOME" ] && [ -n "$XDG_CONFIG_HOME" ]; then
-					# see, https://github.com/scop/bash-completion/tree/2.8
-					PV_BASH_COMP="${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion.d"
-					PV_BASH_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/bash_completion" \
-						&& create_dir "$XDG_CONFIG_HOME"
-				else
-					# see, https://github.com/scop/bash-completion/tree/2.9
-					PV_BASH_COMP="$HOME/.bash-completion.d"
-					PV_BASH_CONFIG="$HOME/.bash_completion"
+	system)
+		PV_BASH_COMP=${SYS_BASH_COMP-/etc/bash_completion.d}
+		if command -v manpath &>/dev/null; then
+			for MAN_PATH in $(manpath -g | tr : $'\n'); do
+				if [ -d "$MAN_PATH" ] && [ -w "$MAN_PATH" ]; then
+					PV_MAN="$MAN_PATH"
+					break
 				fi
-				create_dir "$PV_BASH_COMP"
+			done
+		fi
+		;;
+	user)
+		# bash-completion 2.9 introduced ${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion.d
+		if command -v rpm &>/dev/null; then
+			QUERYPKG_CMD_FMT='rpm -qa --queryformat %s  name=%s'
+		elif command -v dpkg-query &>/dev/null; then
+			QUERYPKG_CMD_FMT='dpkg-query --showformat=%s --show %s'
+		fi
 
-				# make sure there's a line in bash_completion (config) to
-				# source the files in bash-completion.d gets sourced
-				COMP_DIR_RE="$( printf '^[^#].*%s' "${PV_BASH_COMP//\./\\.}" )"
-				if ! grep -q "$COMP_DIR_RE" "$PV_BASH_CONFIG" 2>/dev/null; then
-					printf '
+		if [ "$QUERYPKG_CMD_FMT" ]; then
+			BASH_COMP_VER="$($(printf "$QUERYPKG_CMD_FMT" '%{VERSION}\n' 'bash-completion'))"
+		else
+			warn "Could not locate either rpm / dkpg-query command to determine version of bash-completion"
+		fi
+
+		if [ -n "$BASH_COMP_VER" ]; then
+			XDG_ENABLED_BASH_COMP_VER='2.9'
+			if [ "${BASH_COMP_VER//./}" -ge "${XDG_ENABLED_BASH_COMP_VER//./}" ] &&
+				[ -n "$XDG_DATA_HOME" ] && [ -n "$XDG_CONFIG_HOME" ]; then
+				# see, https://github.com/scop/bash-completion/tree/2.8
+				PV_BASH_COMP="${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion.d"
+				PV_BASH_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/bash_completion" &&
+					create_dir "$XDG_CONFIG_HOME"
+			else
+				# see, https://github.com/scop/bash-completion/tree/2.9
+				PV_BASH_COMP="$HOME/.bash-completion.d"
+				PV_BASH_CONFIG="$HOME/.bash_completion"
+			fi
+			create_dir "$PV_BASH_COMP"
+
+			# make sure there's a line in bash_completion (config) to
+			# source the files in bash-completion.d gets sourced
+			COMP_DIR_RE="$(printf '^[^#].*%s' "${PV_BASH_COMP//\./\\.}")"
+			if ! grep -q "$COMP_DIR_RE" "$PV_BASH_CONFIG" 2>/dev/null; then
+				printf '
 	for i in %s/*; do
 		if [ -r "$i" ]; then
 			. "$i"
 		fi
-	done' "$PV_BASH_COMP" >> "$PV_BASH_CONFIG"
-				fi
+	done' "$PV_BASH_COMP" >>"$PV_BASH_CONFIG"
 			fi
+		fi
+		;;
 	esac
 }
 
 set_pv_zsh_comp() {
 	case "$PROVII_SCOPE" in
-		system) 
-			if command -v zsh >/dev/null 2>&1; then
-				if [ -n "$fpath" ]; then
-					if ( echo "$fpath" | grep -v $HOME | grep -qi completions ); then
-						PV_ZSH_COMP="$ZSH_USER_COMP_DIR"
-					elif ( echo "$fpath" | grep -v $HOME | grep -qi custom ); then
-						PV_ZSH_COMP="$ZSH_USER_CUSTOM_DIR"
-					fi
+	system)
+		if command -v zsh >/dev/null 2>&1; then
+			if [ -n "$fpath" ]; then
+				if (echo "$fpath" | grep -v $HOME | grep -qi completions); then
+					PV_ZSH_COMP="$ZSH_USER_COMP_DIR"
+				elif (echo "$fpath" | grep -v $HOME | grep -qi custom); then
+					PV_ZSH_COMP="$ZSH_USER_CUSTOM_DIR"
 				fi
 			fi
-			;;
-		user) 
-			if command -v zsh >/dev/null 2>&1; then
-				if [ -n "$fpath" ]; then
-					ZSH_USER_COMP_DIR="$( printf '%s.*completions' "$HOME" )"
-					ZSH_USER_CUSTOM_DIR="$( printf '%s.*custom' "$HOME" )"
-					if ( echo "$fpath" | grep -qi "$ZSH_USER_COMP_DIR" ); then
-						PV_ZSH_COMP="$ZSH_USER_COMP_DIR"
-					elif ( echo "$fpath" | grep -qi "$ZSH_USER_CUSTOM_DIR" ); then
-						PV_ZSH_COMP="$ZSH_USER_CUSTOM_DIR"
-					fi
+		fi
+		;;
+	user)
+		if command -v zsh >/dev/null 2>&1; then
+			if [ -n "$fpath" ]; then
+				ZSH_USER_COMP_DIR="$(printf '%s.*completions' "$HOME")"
+				ZSH_USER_CUSTOM_DIR="$(printf '%s.*custom' "$HOME")"
+				if (echo "$fpath" | grep -qi "$ZSH_USER_COMP_DIR"); then
+					PV_ZSH_COMP="$ZSH_USER_COMP_DIR"
+				elif (echo "$fpath" | grep -qi "$ZSH_USER_CUSTOM_DIR"); then
+					PV_ZSH_COMP="$ZSH_USER_CUSTOM_DIR"
 				fi
 			fi
-			;;
+		fi
+		;;
 	esac
 }
 
-fn_install=$( cat <<'EOF'
+fn_install=$(
+	cat <<'EOF'
 BASH_FUNC_install%%=() {
 	if [ "$#" -eq 1 ]; then
 
@@ -329,7 +330,8 @@ BASH_FUNC_install%%=() {
 EOF
 )
 
-fn___dl_github_tarball=$( cat <<'EOF'
+fn___dl_github_tarball=$(
+	cat <<'EOF'
 BASH_FUNC___dl_github_tarball%%=() {
 	REPO=$1
 	FQDN='https://github.com'
@@ -341,7 +343,8 @@ BASH_FUNC___dl_github_tarball%%=() {
 EOF
 )
 
-fn___dl_github_asset=$( cat <<'EOF'
+fn___dl_github_asset=$(
+	cat <<'EOF'
 BASH_FUNC___dl_github_asset%%=() {
 	local RE FQDN URI URL RELEASE MSG
 
@@ -381,7 +384,8 @@ BASH_FUNC___dl_github_asset%%=() {
 EOF
 )
 
-fn___dl_github_file__=$( cat <<'EOF'
+fn___dl_github_file__=$(
+	cat <<'EOF'
 BASH_FUNC___dl_github_file__%%=() {
 	FQDN='https://api.github.com'
 	BRANCH="${3+\?ref=$3}"
@@ -411,7 +415,8 @@ BASH_FUNC___dl_github_file__%%=() {
 EOF
 )
 
-fn_github=$( cat <<'EOF'
+fn_github=$(
+	cat <<'EOF'
 BASH_FUNC_github%%=() {
 	local REPO BRANCH PATH_TO_FILE ASSET_RE
 	PATH_TO_FILE=$(echo "$1" | cut -d/ -f3-)
@@ -459,9 +464,9 @@ EOF
 log() {
 	FMT='+%Y-%m-%d %T'
 	if [ "$1" == '--created' ]; then
-		shift && printf '%s %s %s\n' "$(date "$FMT")" created_file "$@" >> $PROVII_LOG
+		shift && printf '%s %s %s\n' "$(date "$FMT")" created_file "$@" >>$PROVII_LOG
 	else
-		printf '%s %s %s' "$(date "$FMT")" info "$@" >> $PROVII_LOG
+		printf '%s %s %s' "$(date "$FMT")" info "$@" >>$PROVII_LOG
 	fi
 }
 
@@ -474,7 +479,8 @@ err() {
 	exit 1
 }
 
-fn_log="$( cat <<'EOF'
+fn_log="$(
+	cat <<'EOF'
 BASH_FUNC_log%%=() {
 	FMT='+%Y-%m-%d %T'
 	if [ $1 == '--created' ]; then
@@ -486,14 +492,16 @@ BASH_FUNC_log%%=() {
 EOF
 )"
 
-fn_warn="$( cat <<'EOF'
+fn_warn="$(
+	cat <<'EOF'
 BASH_FUNC_warn%%=() {
 	echo "Warning:" "$@"
 }
 EOF
 )"
 
-fn_err="$( cat <<'EOF'
+fn_err="$(
+	cat <<'EOF'
 BASH_FUNC_err%%=() {
 	printf '\n%s: %s' "${MAGENTA}Error${STYLE_RESET}" "$@"
 	exit 1
@@ -501,83 +509,87 @@ BASH_FUNC_err%%=() {
 EOF
 )"
 
-PRINT_VARIABLES="$(cat <<-'EOF'
-env \
-	| grep "^\(OS\|SCOPE\|LIBC\|BASH_COMP\|ZSH_COMP\|MAN\|NAME\|CACHE\|CFG\|ARCH\|BIN\|SYSD\|LOG\)=" \
-	| awk -v ul="$UNDERLINE" -v mg="${MAGENTA}" -v no_style="$STYLE_RESET" '
-		BEGIN {
-			FS="="
-		}{
-			vars[$1] = $2
-		}
-		END {
-			fmt="%s%-10s%s %s\n"
+PRINT_VARIABLES="$(
+	cat <<-'EOF'
+		env \
+			| grep "^\(OS\|SCOPE\|LIBC\|BASH_COMP\|ZSH_COMP\|MAN\|NAME\|CACHE\|CFG\|ARCH\|BIN\|SYSD\|LOG\)=" \
+			| awk -v ul="$UNDERLINE" -v mg="${MAGENTA}" -v no_style="$STYLE_RESET" '
+				BEGIN {
+					FS="="
+				}{
+					vars[$1] = $2
+				}
+				END {
+					fmt="%s%-10s%s %s\n"
 
-			if ("NAME" in vars) context=vars["NAME"]
-			else context="GLOBAL"
-			printf "\n%sprovii: %s%s\n", ul, context, no_style
+					if ("NAME" in vars) context=vars["NAME"]
+					else context="GLOBAL"
+					printf "\n%sprovii: %s%s\n", ul, context, no_style
 
-			general_keys	= "NAME OS ARCH LIBC"
-			dirs_keys		= "BIN MAN BASH_COMP ZSH_COMP SYSD"
-			meta_keys 		= "SCOPE CACHE LOG"
+					general_keys = "NAME OS ARCH LIBC"
+					dirs_keys     = "BIN MAN BASH_COMP ZSH_COMP SYSD"
+					meta_keys     = "SCOPE CACHE LOG"
 
-			printf "\n"
-			split(general_keys, general, " ")
-			for (i in general) {
-				var=general[i]
-				if (var in vars) printf fmt, mg, var, no_style, vars[var]
-			}
+					printf "\n"
+					split(general_keys, general, " ")
+					for (i in general) {
+						var=general[i]
+						if (var in vars) printf fmt, mg, var, no_style, vars[var]
+					}
 
-			printf "\n"
-			split(meta_keys, meta, " ")
-			for (i in meta) {
-				var=meta[i]
-				if (var in vars) printf fmt, mg, var, no_style, vars[var]
-			}
+					printf "\n"
+					split(meta_keys, meta, " ")
+					for (i in meta) {
+						var=meta[i]
+						if (var in vars) printf fmt, mg, var, no_style, vars[var]
+					}
 
-			printf "\n"
-			split(dirs_keys, dirs, " ")
-			for (i in dirs) {
-				var=dirs[i]
-				if (var in vars) printf fmt, mg, var, no_style, vars[var]
-			}
+					printf "\n"
+					split(dirs_keys, dirs, " ")
+					for (i in dirs) {
+						var=dirs[i]
+						if (var in vars) printf fmt, mg, var, no_style, vars[var]
+					}
 
-		}'
-EOF
+				}'
+	EOF
 )"
 
 run_installer() {
 	PROVIIRC="${XDG_CONFIG_HOME-$HOME/.config}/proviirc"
 	[ -f "$PROVIIRC" ] && . "$PROVIIRC"
 
-	USER_CACHE="${XDG_CACHE_HOME-$HOME/.cache}" 
-	[ -d "$USER_CACHE" ] && [ -w "$USER_CACHE" ] \
-		&& PROVII_CACHE="$USER_CACHE/provii" \
-		|| PROVII_CACHE=/tmp/provii
-	
+	USER_CACHE="${XDG_CACHE_HOME-$HOME/.cache}"
+	[ -d "$USER_CACHE" ] && [ -w "$USER_CACHE" ] &&
+		PROVII_CACHE="$USER_CACHE/provii" ||
+		PROVII_CACHE=/tmp/provii
+
 	# create_dir will fail unless $PROVII_LOG is defined first
 	PROVII_LOG=${PROVII_LOG:-$PROVII_CACHE/run.log}
 	[ ! "$SUMMARIZE" ] && create_dir "$PROVII_CACHE"
-	
-	case  "$(ldd --version 2>&1 | head -1 | tr [:upper:] [:lower:])" in
-		*musl*) PROVII_LIBC=musl ;;
-		*gnu*) PROVII_LIBC=gnu ;;
+
+	case "$(ldd --version 2>&1 | head -1 | tr [:upper:] [:lower:])" in
+	*musl*) PROVII_LIBC=musl ;;
+	*gnu* | *glibc*) PROVII_LIBC=gnu ;;
 	esac
 
 	# see, https://en.wikipedia.org/wiki/Uname#Examples
-	PROVII_SYSTEM="$( uname -s | tr [:upper:] [:lower:] )"
+	PROVII_SYSTEM="$(uname -s | tr [:upper:] [:lower:])"
 	case "$(uname -m)" in
-		amd64 | x86_64 )
-			PROVII_MACHINE='(x86_64|amd64)' ;;
-		i386 | i586 | i686 )
-			PROVII_MACHINE='(i386|i586|i686)' ;;
-		*)
-			PROVII_MACHINE=unknown ;;
+	amd64 | x86_64)
+		PROVII_MACHINE='(x86_64|amd64)'
+		;;
+	i386 | i586 | i686)
+		PROVII_MACHINE='(i386|i586|i686)'
+		;;
+	*)
+		PROVII_MACHINE=unknown
+		;;
 	esac
 
-	[ "$(id -u)" -eq "0" ] \
-		&& PROVII_SCOPE=system \
-		|| PROVII_SCOPE=user
+	[ "$(id -u)" -eq "0" ] &&
+		PROVII_SCOPE=system ||
+		PROVII_SCOPE=user
 
 	set_pv_bin
 	set_pv_data
@@ -598,20 +610,20 @@ run_installer() {
 	fi
 
 	case *:$PATH:* in
-		*:$PV_BIN:*)
-			;;
-		*)
-			[ -z $SUDO_USER ] && warn "$PV_BIN" temporarily added \
-				to PATH, manually add it to your shell configuration
-			;;
+	*:$PV_BIN:*) ;;
+
+	*)
+		[ -z $SUDO_USER ] && warn "$PV_BIN" temporarily added \
+			to PATH, manually add it to your shell configuration
+		;;
 	esac
 
-	[ ! "$SUMMARIZE" ] \
-		&& SCRIPTLET="$(get_installer)" \
-		|| SCRIPTLET="$PRINT_VARIABLES"
+	[ ! "$SUMMARIZE" ] &&
+		SCRIPTLET="$(get_installer)" ||
+		SCRIPTLET="$PRINT_VARIABLES"
 
 	/usr/bin/env -C "${PV_TMP:-$PROVII_CACHE}" - \
-		${INSTALLER:+NAME="$INSTALLER"}\
+		${INSTALLER:+NAME="$INSTALLER"} \
 		SCOPE="$PROVII_SCOPE" \
 		BIN="$PV_BIN" \
 		${PV_MAN:+MAN="$PV_MAN"} \
@@ -647,7 +659,7 @@ else
 	case "$subcommand" in
 	install)
 		case "$1" in
-			-h | --help | help ) print_usage 'install' ;;
+		-h | --help | help) print_usage 'install' ;;
 		esac
 		for APP in $*; do
 			INSTALLER="$APP" run_installer
@@ -655,13 +667,13 @@ else
 		;;
 	ls)
 		case "$1" in
-			-h | --help | help ) print_usage 'ls' ;;
+		-h | --help | help) print_usage 'ls' ;;
 		esac
 		ls_installers
 		;;
 	env)
 		case "$1" in
-			-h | --help | help ) print_usage 'env' ;;
+		-h | --help | help) print_usage 'env' ;;
 		esac
 		SUMMARIZE=1
 		if [ $# -gt 0 ]; then
@@ -674,27 +686,31 @@ else
 		;;
 	cat)
 		case "$1" in
-			-h | --help | help )
+		-h | --help | help)
+			print_usage 'cat'
+			;;
+		-b | --branch)
+			shift
+			[ -n "$1" ] &&
+				PROVII_BRANCH="$1" ||
 				print_usage 'cat'
-				;;
-			-b | --branch )
-				shift
-				[ -n "$1" ] \
-					&& PROVII_BRANCH="$1" \
-					|| print_usage 'cat'
-				[ -n "$2" ] \
-					&& INSTALLER="$2" \
-					|| print_usage 'cat'
-				;;
-			*) 
-				[ -n "$1" ] \
-					&& INSTALLER="$1" \
-					|| print_usage 'cat'
-				;;
+			[ -n "$2" ] &&
+				INSTALLER="$2" ||
+				print_usage 'cat'
+			;;
+		*)
+			[ -n "$1" ] &&
+				INSTALLER="$1" ||
+				print_usage 'cat'
+			;;
 		esac
-		get_installer
+		if command -v bat >/dev/null 2>&1; then
+			get_installer | bat -p --language="bash"
+		else
+			get_installer
+		fi
 		;;
-	-h | --help | help )
+	-h | --help | help)
 		print_usage "$1"
 		;;
 	esac

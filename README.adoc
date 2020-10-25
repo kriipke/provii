@@ -1,0 +1,179 @@
+= provii
+
+`provii` is a bash script tool to painlessly download your favorite command-line utilities on a machine that that may be missing them. The script itself is hosted at http://l0xy.sh/provii. `provii` works by first gathering the necessisary fact about the system its running on to install the pre-built binary (as well as man pages & shell completions if available), and then fetching & running the appropriate installion scripts hosted in `provii`'s github repository in the link:https://github.com/l0xy/provii/tree/master/installs[installs directory].
+
+When gathering facts, `provii` intelligently determines the relevant settings based on, most imporarntly, whether it was run with root privilages or not along with things like operating system, processor type & installed version of `libc`.
+
+For example, during a typical install of `fd`, an alternative to the `find` tool written in Rust, if the default settings are used, `provii` would install the following files:
+
+. `fd` binary
+	- when run as root: `/usr/local/bin/fd`
+	- when run as regular user: `~/.local/bin/fd`
+. `fd` man page
+	- when run as root: `/usr/local/share/man/man1/fd.1`
+	- when run as regular user: `~/.local/man/man1/fd`
+. `fd` shell completions
+	- when run as root: `/etc/bash_completion.d/fd.bash-completion`
+	- when run as regular user: `~/.bash_completion.d/fd`
+
+For more information on how directories are determined, see <<Configuration,configuration>> below.
+
+All the software's installed via `provii` come _directly from their authors_, e.g. the official Github repository or the official SourceForge page. So you can feel safe installing all these softwares using `provii`. The goal of `provii` is to save you the 5-6 steps you would typically have to take to download the most recent release from the author, unarchive it, and copy the binary & man pages / shell completions to the right folders. In other words, `provii` is designed to do exactly what _you_ would do, but automated.
+
+== Usage
+
+=== Method 1: `bash -c "$( curl l0xy.sh/provii )" $installer`
+
+The easiest way to use provii is to curl the script and pipe it directly into bash. For example, to download the tool `fd` , you would run:
+
+[source,console]
+~$ bash -c "$( curl l0xy.sh/provii.sh )" fd
+
+Once run `provii` will print out the location to which the binary will be installed and print some information as the script runs. See <<`provii install`>> for output.
+
+The best part about running `provii` this way is that after the installation of a program such as `fd`, _the only files left on your machine will be the ones you requested_. In other words, when `provii` is run by downloading via `curl`/`wget` and piped directly into `bash`, there will be no trace of `provii` itself or any intermediary files used during the installation!
+
+=== Method 2: Download `provii` and place in `$PATH`
+
+If you choose to download `provii` you will be afforded a few more features, mostly geared towards previewing the changes that will be made before running an installation. Once downloaded, the subcommands below will be available.
+
+=== `provii install`
+
+The `install` subcommand is the crux of `provii` as this is how you install the command-line utilities available via `provii`. Note that when you use `provii` using <<Method 1: `bash -c "$( curl l0xy.sh/provii )" $installer`,Method 1>>, interally `provii` just runs this command. Example output of `provii install fd`:
+
+image::examples/provii_install.png[provii install fd]
+
+For more information, run `provii install -h`.
+
+==== `provii ls`
+
+The `ls` subcommand allows you to print all the command-line tools avaliable for installation via `provii`. Example output:
+
+image::examples/provii_ls.png[provii ls]
+
+Alternatively you can browse the installers avaliable at: https://github.com/l0xy/provii/tree/master/installs
+
+For more information, run `provii ls -h`.
+
+==== `provii cat`
+
+The `cat` subcommand takes the name of an installer as an argument and prints the actual script that will be run without running it. Example output of `provii cat fd`:
+
+image::examples/provii_cat.png[provii cat fd]
+
+Note that unless you are writing a `provii` installer yourself or are doing debugging, you really don't need to know anything about the script or how it works unless you just want to make sure you're not running anything malicious.
+
+For more information, run `provii cat -h`.
+
+==== `provii env`
+
+The `env` subcommand takes an optional argument, an installer name, and is meant to gather facts and define variables that _would be used_ in the `provii` installer provided. For example, if `provii env fd` was run as root it would produce output that would look something like the following:
+
+image::examples/provii_env.png[provii env fd]
+
+For more information, run `provii env -h`.
+
+== Configuration
+
+No matter how you use `provii`, it will check for a configuration file containing variable definitions at:
+- `$XDG_CONFIG_HOME/proviirc`, if `$XDG_CONFIG_HOME` is defined
+- `$HOME/.config/proviirc` otherwise
+
+`provii` is designed to intelligently select directories and define variables without the need for a config file so you don't need to worry about creating one unless you have some special requirements.
+
+Below is a sample configuration file with all of the possible varaibles and their default values. Variables without values listed below do not have a hard-coded default value but rather, their value is dynamically determined at runtime unless they are explicitly defined in the configuration file. For more information see <<Environment,environment>>.
+
+[source,bash]
+----
+PROVII_CACHE=~/.cache/provii
+PROVII_LOG=$PROVII_CACHE/run.log
+
+PROVII_SCOPE=
+PROVII_ARCH=
+PROVII_OS=
+PROVII_LIBC=
+
+# variables used when $PROVII_SCOPE == system
+
+PROVII_SYSTEM_BIN=/usr/local/bin
+PROVII_SYSTEM_MAN=/usr/share/man
+PROVII_SYSTEM_ZSH_COMP=
+PROVII_SYSTEM_BASH_COMP=/etc/bash_completion.d
+
+# variables used when $PROVII_SCOPE == user
+
+PROVII_USER_BIN=~/.local/bin
+PROVII_USER_MAN=~/.local/share/man
+PROVII_USER_ZSH_COMP=
+# when using `bash-completion` v2.9 or higher,
+PROVII_USER_BASH_COMP=${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion.d
+# when using `bash-completion` v2.8 or lower,
+PROVII_USER_BASH_COMP=~/.bash-completion.d
+----
+
+== How It Works
+
+`provii` works by
+
+. determining whether it is being run with root privilages or not and subsequently setting the variable `$PROVII_SCOPE`, which will either be defined as `system` or `user`
+. gathering information about directories to place binary files, man pages, and shell completions based on `$PROVII_SCOPE`
+. gathering information about the current system running `provii` needed to select and install the correct binary, including this like processor type and operating system
+. next, provii creates a `bash` subshell with a clean environment and populates that environment with variables that will be used while running the installation, defined during steps 1, 2 & 3 - for more information on what these varaibles are and how they are used see <<Environment,environment>>.
+. finally, within the newly created subshell `provii` runs the requested installer that has been fetched from the `provii` Github repository in the link:https://github.com/l0xy/provii/tree/master/installs[installs directory].
+
+== Environment
+
+This section explains all the varaibles that exists in the subshells in which the `provii` installers are run and how they are defined. This information is of particular interest to those who wish to modify the way that `provii` works or those who wish to contribute an installer script of their own to the project.
+
+All of the variables listed in <<Configuration,the configuration section>> above are the names of the variables as they are used in the `provii` script itself. These variables are then used to populate the environment of the subshell in which the installer is run. So, for example, when run as root the value assigned to `$PROVII_SYSTEM_BIN` will be avaliable in the installer subshell via `$BIN`, and likewise if `provii` is run as a regular user the value assigned to `$PROVII_USER_BIN` will be avaliable via `$BIN`. These variables are redefined by new names in the subshell so that the installer scripts can be written without any regard to whether they will be run with root privilages or not, while at the same time allowing for `provii` to be intricately configured in the `proviirc`.
+
+Below is a list of all the varaibles avaliable within the subshells (and consequently the installer scripts) along with how they are defined in their parent shell, e.g. the main `provii` script before the subshell is entered.
+
+variables whose value is dependent upon the value of `$PROVII_SCOPE`::
+`$BIN`:::
+- when run as root
+  - `$PROVII_SYSTEM_BIN` -> `$BIN`
+- when run as user
+  - `$PROVII_USER_BIN` -> `$BIN`
+`$MAN`:::
+- when run as root
+  - first directory listed in the output of `manpath` -> `$PROVII_MAN`
+- when run as user
+  - first directory listed in the output of `manpath` prefixed with `$HOME` -> `$PROVII_MAN`
+- `$PROVII_MAN` -> `$MAN`
+`$ZSH_COMP`:::
+- when run as root
+  - first directory contained in the value of `fpath` containing `completion` prefixed with `/usr` or `/etc` -> `$PROVII_ZSH_COMP`
+  - else, first directory contained in the value of `fpath` containing `custom` prefixed with `/usr` or `/etc` -> `$PROVII_ZSH_COMP`
+- when run as user
+  - first directory contained in the value of `fpath` containing `completion` prefixed with `$HOME` -> `$ZSH_COMP`
+  - else, first directory contained in the value of `fpath` containing `custom` prefixed with `$HOME` -> `$ZSH_COMP`
+- `$PROVII_ZSH_COMP` -> `$ZSH_COMP`
+`$BASH_COMP`:::
+- when run as root
+  - `$PROVII_BASH_COMP=/etc/bash_completion.d`
+- when run as user
+  . when running `bash-completion` >= v2.9,
+	  - `$PROVII_BASH_COMP=~/bash-completion.d`
+  . when running `bash-completion` < v2.9,
+	  - `$PROVII_BASH_COMP=${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion.d`
+- `$PROVII_BASH_COMP` -> `$BASH_COMP`
+variables defined independently of the value of `$PROVII_SCOPE`::
+`$SCOPE`:::
+- output of `id -u` determines `$PROVII_SCOPE`
+- `$PROVII_SCOPE` -> `$SCOPE`
+`$OS`:::
+- output of `uname -s` determines `$PROVII_SYSTEM`
+- `PRVOII_SYSTEM` -> `$OS`
+`$ARCH`:::
+- output of `uname -m` determines `$PROVII_MACHINE`
+- `PRVOII_MACHINE` -> `$ARCH`
+`$LIBC`:::
+- output of `ldd --version | head -1` determines `$PROVII_LIBC`
+- `$PROVII_LIBC` -> `$LIBC`
+`$CACHE`:::
+- hard-coded, `PROVII_CACHE=~/.cache/provii`
+- `$PROVII_CACHE` -> `$CACHE`
+`$LOG`:::
+- hard-coded, `PROVII_LOG=$PROVII_CACHE/run.log`
+- `$PROVII_LOG` -> `$LOG`

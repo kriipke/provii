@@ -4,11 +4,8 @@
 # https://stedolan.github.io/jq/
 
 case $(uname -m) in
-	*64)
-		ARCH=64
-		;;
-	*) 
-		ARCH=32
+	*64) ARCH=64 ;;
+	*) ARCH=32 ;;
 esac
 
 github stedolan/jq "$NAME.*$OS.*$ARCH"

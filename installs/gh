@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+# GitHub’s official command line tool
+# https://cli.github.com
+
+case $(uname -m) in
+	arm64|aarch64)
+		ARCH=arm64
+		;;
+	amd64|x86_64)
+		ARCH=amd64
+		;;
+	i[3456]86)
+		ARCH=386
+		;;
+	*)
+		err "Currently Github's command line tool is only available for i386, amd64 & arm64 architectures."
+esac
+
+github cli/cli "$OS.*$ARCH.*gz$"
+tar -xf ./* --strip=1
+
+install bin/gh
+
+if [ $MAN ]; then
+	cp share/man/man1/* $MAN/man1/
+fi
