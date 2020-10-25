@@ -94,38 +94,38 @@ Below is a list of all the varaibles avaliable within the subshells (and consequ
 Variables defined in a `proviirc` file, should one exist on the machine, will not be set according to the logic below, but rather retain the value defined in the `proviirc` file (assuming that value is not null), see <<Configuration,configuration>> for more information.
 
 variables whose value is dependent upon the value of `$PROVII_SCOPE`::
-`$BIN`:::
-- _when run as root_
-  * `PROVII_BIN=/usr/local/bin`
-- _when run as regular user_
-  * `PROVII_BIN=~/.local/bin`
-- `$PROVII_BIN` -> `$BIN`
-`$MAN`:::
-. _when run as..._
-.. _root_
-  - if `/usr/share/man` listed in output of `manpath`, then `/usr/share/man` -> `$PROVII_MAN`
-  - else, first directory listed in the output of `manpath` -> `$PROVII_MAN`
-.. _regular user_
-  - if `~/.local/share/man` listed in output of `manpath`, then `~/.local/share/man` -> `$PROVII_MAN`
-  - else, first directory listed in the output of `manpath` prefixed with `$HOME` -> `$PROVII_MAN`
-. `$PROVII_MAN` -> `$MAN`
-`$ZSH_COMP`:::
-- _when run as root_
-  * first directory contained in the value of `$fpath` containing `completion` prefixed with `/usr` or `/etc` -> `$PROVII_ZSH_COMP`
-  * else, first directory contained in the value of `$fpath` containing `custom` prefixed with `/usr` or `/etc` -> `$PROVII_ZSH_COMP`
-- _when run as regular user_
-  * first directory contained in the value of `$fpath` containing `completion` prefixed with `$HOME` -> `$PROVII_ZSH_COMP`
-  * else, first directory contained in the value of `$fpath` containing `custom` prefixed with `$HOME` -> `$PROVII_ZSH_COMP`
-- `$PROVII_ZSH_COMP` -> `$ZSH_COMP`
-`$BASH_COMP`:::
-- _when run as root_
-  * `$PROVII_BASH_COMP=/etc/bash_completion.d`
-- _when run as regular user_
-  . when running `bash-completion` >= v2.9,
-	* `$PROVII_BASH_COMP=~/bash-completion.d`
-  . when running `bash-completion` < v2.9,
-	* `$PROVII_BASH_COMP=${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion.d`
-- `$PROVII_BASH_COMP` -> `$BASH_COMP`
+  `$BIN`:::
+  1a. _when run as root_
+    * `PROVII_BIN=/usr/local/bin`
+  1b. _when run as regular user_
+    * `PROVII_BIN=~/.local/bin`
+  2. `$PROVII_BIN` -> `$BIN`
+  `$MAN`:::
+  . _when run as..._
+  .. _root_
+    - if `/usr/share/man` listed in output of `manpath`, then `/usr/share/man` -> `$PROVII_MAN`
+    - else, first directory listed in the output of `manpath` -> `$PROVII_MAN`
+  .. _regular user_
+    - if `~/.local/share/man` listed in output of `manpath`, then `~/.local/share/man` -> `$PROVII_MAN`
+    - else, first directory listed in the output of `manpath` prefixed with `$HOME` -> `$PROVII_MAN`
+  . `$PROVII_MAN` -> `$MAN`
+  `$ZSH_COMP`:::
+  - _when run as root_
+    * first directory contained in the value of `$fpath` containing `completion` prefixed with `/usr` or `/etc` -> `$PROVII_ZSH_COMP`
+    * else, first directory contained in the value of `$fpath` containing `custom` prefixed with `/usr` or `/etc` -> `$PROVII_ZSH_COMP`
+  - _when run as regular user_
+    * first directory contained in the value of `$fpath` containing `completion` prefixed with `$HOME` -> `$PROVII_ZSH_COMP`
+    * else, first directory contained in the value of `$fpath` containing `custom` prefixed with `$HOME` -> `$PROVII_ZSH_COMP`
+  - `$PROVII_ZSH_COMP` -> `$ZSH_COMP`
+  `$BASH_COMP`:::
+  - _when run as root_
+    * `$PROVII_BASH_COMP=/etc/bash_completion.d`
+  - _when run as regular user_
+    . when running `bash-completion` >= v2.9,
+  	* `$PROVII_BASH_COMP=~/bash-completion.d`
+    . when running `bash-completion` < v2.9,
+  	* `$PROVII_BASH_COMP=${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion.d`
+  - `$PROVII_BASH_COMP` -> `$BASH_COMP`
 variables defined independently of the value of `$PROVII_SCOPE`::
 `$SCOPE`:::
 . output of `id -u` determines `$PROVII_SCOPE`
