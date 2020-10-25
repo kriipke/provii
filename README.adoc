@@ -95,55 +95,59 @@ Variables defined in a `proviirc` file, should one exist on the machine, will no
 
 variables whose value is dependent upon the value of `$PROVII_SCOPE`::
   `$BIN`:::
-  1. _when run as root_
+  . `$PROVII_BIN` defined
+  .. _when run as root_
     * `PROVII_BIN=/usr/local/bin`
-  1. _when run as regular user_
+  .. _when run as regular user_
     * `PROVII_BIN=~/.local/bin`
-  2. `$PROVII_BIN` -> `$BIN`
+  . when passed to subshell, `$PROVII_BIN` -> `$BIN`
   `$MAN`:::
+  . `$PROVII_MAN` defined
   .. _when run as root_
     - if `/usr/share/man` listed in output of `manpath`, then `/usr/share/man` -> `$PROVII_MAN`
     - else, first directory listed in the output of `manpath` -> `$PROVII_MAN`
   .. _regular user_
     - if `~/.local/share/man` listed in output of `manpath`, then `~/.local/share/man` -> `$PROVII_MAN`
     - else, first directory listed in the output of `manpath` prefixed with `$HOME` -> `$PROVII_MAN`
-  . `$PROVII_MAN` -> `$MAN`
+  . when passed to subshell, `$PROVII_MAN` -> `$MAN`
   `$ZSH_COMP`:::
-  - _when run as root_
+  . `$PROVII_ZSH_COMP` defined
+  .. _when run as root_
     * first directory contained in the value of `$fpath` containing `completion` prefixed with `/usr` or `/etc` -> `$PROVII_ZSH_COMP`
     * else, first directory contained in the value of `$fpath` containing `custom` prefixed with `/usr` or `/etc` -> `$PROVII_ZSH_COMP`
-  - _when run as regular user_
+  .. _when run as regular user_
     * first directory contained in the value of `$fpath` containing `completion` prefixed with `$HOME` -> `$PROVII_ZSH_COMP`
     * else, first directory contained in the value of `$fpath` containing `custom` prefixed with `$HOME` -> `$PROVII_ZSH_COMP`
-  - `$PROVII_ZSH_COMP` -> `$ZSH_COMP`
+  . when passed to subshell, `$PROVII_ZSH_COMP` -> `$ZSH_COMP`
   `$BASH_COMP`:::
-  - _when run as root_
-    * `$PROVII_BASH_COMP=/etc/bash_completion.d`
-  - _when run as regular user_
-    . when running `bash-completion` >= v2.9,
+  . `$PROVII_BASH_COMP` defined
+  .. _when run as root_
+    * `PROVII_BASH_COMP=/etc/bash_completion.d`
+  .. _when run as regular user_
+    . when `bash-completion` version >= 2.9,
   	* `$PROVII_BASH_COMP=~/bash-completion.d`
-    . when running `bash-completion` < v2.9,
-  	* `$PROVII_BASH_COMP=${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion.d`
-  - `$PROVII_BASH_COMP` -> `$BASH_COMP`
+    . when `bash-completion` version < 2.9,
+  	* `PROVII_BASH_COMP=${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion.d`
+  . when passed to subshell, `$PROVII_BASH_COMP` -> `$BASH_COMP`
 variables defined independently of the value of `$PROVII_SCOPE`::
-`$SCOPE`:::
-. output of `id -u` determines `$PROVII_SCOPE`
-. `$PROVII_SCOPE` -> `$SCOPE`
-`$OS`:::
-. output of `uname -s` determines `$PROVII_SYSTEM`
-. `PRVOII_SYSTEM` -> `$OS`
-`$ARCH`:::
-. output of `uname -m` determines `$PROVII_MACHINE`
-. `PRVOII_MACHINE` -> `$ARCH`
-`$LIBC`:::
-. output of `ldd --version | head -1` determines `$PROVII_LIBC`
-. `$PROVII_LIBC` -> `$LIBC`
-`$CACHE`:::
-. hard-coded, `PROVII_CACHE=~/.cache/provii`
-. `$PROVII_CACHE` -> `$CACHE`
-`$LOG`:::
-. hard-coded, `PROVII_LOG=$PROVII_CACHE/run.log`
-. `$PROVII_LOG` -> `$LOG`
+  `$SCOPE`:::
+  . output of `id -u` determines `$PROVII_SCOPE`
+  . when passed to subshell, `$PROVII_SCOPE` -> `$SCOPE`
+  `$OS`:::
+  . output of `uname -s` determines `$PROVII_SYSTEM`
+  . when passed to subshell, `PRVOII_SYSTEM` -> `$OS`
+  `$ARCH`:::
+  . output of `uname -m` determines `$PROVII_MACHINE`
+  . when passed to subshell, `PRVOII_MACHINE` -> `$ARCH`
+  `$LIBC`:::
+  . output of `ldd --version | head -1` determines `$PROVII_LIBC`
+  . when passed to subshell, `$PROVII_LIBC` -> `$LIBC`
+  `$CACHE`:::
+  . hard-coded, `PROVII_CACHE=~/.cache/provii`
+  . when passed to subshell, `$PROVII_CACHE` -> `$CACHE`
+  `$LOG`:::
+  . hard-coded, `PROVII_LOG=$PROVII_CACHE/run.log`
+  . when passed to subshell, `$PROVII_LOG` -> `$LOG`
 
 == Configuration
 
@@ -152,7 +156,7 @@ If you wish to change the default operation of provii as explained in the <<Envi
 - `$XDG_CONFIG_HOME/proviirc`, if `$XDG_CONFIG_HOME` is defined
 - `$HOME/.config/proviirc` otherwise
 
-Below is a sample configuration file with all of the possible variables and their default values. Variables without values listed below do not have a hard-coded default value but rather, their value is dynamically determined at runtime unless they are explicitly defined in the configuration file. For more information see <<Environment,environment>>.
+Below is a sample configuration file with all of the possible variables and their default values. Variables without values listed below do not have a hard-coded default value but rather, their value is dynamically determined at runtime unless they are explicitly defined in the configuration file. For more information see <<Environment>>.
 
 [NOTE]
 The `proviirc` can contain as few or as many variables as you wish. However, it would only make sense to explictly define a variable in `proviirc` if you wish to override the default value as determined by the logic explained in the  <<Environment,environment>> section.
