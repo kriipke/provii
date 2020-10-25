@@ -95,29 +95,31 @@ Variables defined in a `proviirc` file, should one exist on the machine, will no
 
 variables whose value is dependent upon the value of `$PROVII_SCOPE`::
 `$BIN`:::
-- when run as root
+- _when run as root_
   * `PROVII_BIN=/usr/local/bin`
-- when run as user
+- _when run as regular user_
   * `PROVII_BIN=~/.local/bin`
 - `$PROVII_BIN` -> `$BIN`
 `$MAN`:::
-- when run as root
-  * first directory listed in the output of `manpath` -> `$PROVII_MAN`
-- when run as user
-  * first directory listed in the output of `manpath` prefixed with `$HOME` -> `$PROVII_MAN`
+-- _when run as root_
+  * if `/usr/share/man` listed in output of `manpath`, then `/usr/share/man` -> `$PROVII_MAN`
+  * else, first directory listed in the output of `manpath` -> `$PROVII_MAN`
+-- _when run as regular user_
+  * if `~/.local/share/man` listed in output of `manpath`, then `~/.local/share/man` -> `$PROVII_MAN`
+  * else, first directory listed in the output of `manpath` prefixed with `$HOME` -> `$PROVII_MAN`
 - `$PROVII_MAN` -> `$MAN`
 `$ZSH_COMP`:::
-- when run as root
+- _when run as root_
   * first directory contained in the value of `$fpath` containing `completion` prefixed with `/usr` or `/etc` -> `$PROVII_ZSH_COMP`
   * else, first directory contained in the value of `$fpath` containing `custom` prefixed with `/usr` or `/etc` -> `$PROVII_ZSH_COMP`
-- when run as user
+- _when run as regular user_
   * first directory contained in the value of `$fpath` containing `completion` prefixed with `$HOME` -> `$PROVII_ZSH_COMP`
   * else, first directory contained in the value of `$fpath` containing `custom` prefixed with `$HOME` -> `$PROVII_ZSH_COMP`
 - `$PROVII_ZSH_COMP` -> `$ZSH_COMP`
 `$BASH_COMP`:::
-- when run as root
+- _when run as root_
   * `$PROVII_BASH_COMP=/etc/bash_completion.d`
-- when run as user
+- _when run as regular user_
   . when running `bash-completion` >= v2.9,
 	* `$PROVII_BASH_COMP=~/bash-completion.d`
   . when running `bash-completion` < v2.9,
@@ -155,4 +157,31 @@ Below is a sample configuration file with all of the possible variables and thei
 [NOTE]
 The `proviirc` can contain as few or as many variables as you wish. However, it would only make sense to explictly define a variable in `proviirc` if you wish to override the default value as determined by the logic explained in the  <<Environment,environment>> section.
 
-include::proviirc.example[]
+[source]
+----
+# Sample ~/.config/proviirc with default values
+# variables without values have values that are dynamically determined at runtime,
+# unless they are explicitly defined in the proviirc, in which case that value is used
+
+PROVII_CACHE=~/.cache/provii
+PROVII_LOG=$PROVII_CACHE/run.log
+
+PROVII_SCOPE=
+PROVII_ARCH=
+PROVII_OS=
+PROVII_LIBC=
+
+# variables used when $PROVII_SCOPE == system
+
+PROVII_SYSTEM_BIN=/usr/local/bin
+PROVII_SYSTEM_MAN=/usr/share/man
+PROVII_SYSTEM_ZSH_COMP=
+PROVII_SYSTEM_BASH_COMP=/etc/bash_completion.d
+
+# variables used when $PROVII_SCOPE == user
+
+PROVII_USER_BIN=~/.local/bin
+PROVII_USER_MAN=~/.local/share/man
+PROVII_USER_ZSH_COMP=
+PROVII_USER_BASH_COMP=
+----
