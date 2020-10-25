@@ -1,6 +1,6 @@
 = provii
 
-`provii` is a provisioning tool to painlessly download your favorite command-line utilities as pre-compiled binaries on a machine that that may be missing them. It is a convenient alternative when you do not have the premissions required to install software using the systems package manager or when you do not wish to install the software system-wide. 
+`provii` is a provisioning tool to painlessly download your favorite command-line utilities as pre-compiled binaries on a machine that that may be missing them. It is a convenient alternative when you do not have the premissions required to install software using the systems package manager or when you do not wish to install the software system-wide.
 
 The script itself is hosted both at https://l0xy.sh/provii and on link:https://raw.github.com/l0xy/provii/master/provii[Github]. Additionally, the list of installers available via `provii` can be found at link:https://github.com/l0xy/provii/tree/master/installs[here] (or listed using `provii` itself, see <<provii ls,`provii ls`>>)
 
@@ -108,6 +108,22 @@ Below is a list of all the varaibles avaliable within the subshells (and consequ
 
 [NOTE]
 Variables defined in a `proviirc` file, should one exist on the machine, will not be set according to the logic below, but rather retain the value defined in the `proviirc` file (assuming that value is not null), see <<Configuration>> for more information.
+
+[cols="m,d",options="header"]
+|===
+|variable
+|definition logic
+
+|$SCOPE
+a|
+. output of `id -u` determines `$PROVII_SCOPE`
+. when passed to subshell, `$PROVII_SCOPE` -> `$SCOPE`
+
+|$OS
+a|
+. output of `uname -s` determines `$PROVII_SYSTEM`
+. when passed to subshell, `PRVOII_SYSTEM` -> `$OS`
+|===
 
 variables defined independently of the value of `$PROVII_SCOPE`::
   `$SCOPE`:::
