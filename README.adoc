@@ -101,10 +101,11 @@ variables whose value is dependent upon the value of `$PROVII_SCOPE`::
   * `PROVII_BIN=~/.local/bin`
 - `$PROVII_BIN` -> `$BIN`
 `$MAN`:::
-.. _when run as root_
+. _when run as..._
+.. _root_
   - if `/usr/share/man` listed in output of `manpath`, then `/usr/share/man` -> `$PROVII_MAN`
   - else, first directory listed in the output of `manpath` -> `$PROVII_MAN`
-.. _when run as regular user_
+.. _regular user_
   - if `~/.local/share/man` listed in output of `manpath`, then `~/.local/share/man` -> `$PROVII_MAN`
   - else, first directory listed in the output of `manpath` prefixed with `$HOME` -> `$PROVII_MAN`
 . `$PROVII_MAN` -> `$MAN`
