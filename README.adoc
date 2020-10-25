@@ -131,7 +131,7 @@ a|
 
 |$LIBC
 a|
-. output of `ldd --version | head -1` determines `$PROVII_LIBC`
+. output of `ldd --version` determines `$PROVII_LIBC`
 . when passed to subshell, `$PROVII_LIBC` -> `$LIBC`
 
 |$CACHE
