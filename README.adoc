@@ -12,11 +12,12 @@ For example, during a typical install of `fd`, an alternative to the `find` tool
 
 For more information on where these files are installed and how that location is determined see <<Configuration>> below.
 
+[NOTE]
 All the software's installed via provii come _directly from their authors_, e.g. the official Github repository or the official SourceForge page. So you can feel safe installing all these softwares using provii. The goal of provii is to save you the 5-6 steps you would typically have to take to download the most recent release from the author, unarchive it, and copy the binary & man pages / shell completions to the right folders. In other words, provii is designed to do exactly what _you_ would do, but automated.
 
 == Usage
 
-=== Method 1: `bash -c "$( curl l0xy.sh/provii )" $installer`
+=== Method 1: curl `provii` directly into bash
 
 The easiest way to use provii is to curl the script and pipe it directly into bash. For example, to download the tool `fd` , you would run:
 
@@ -33,7 +34,7 @@ If you choose to download provii you will be afforded a few more features, mostl
 
 ==== `provii install`
 
-The `install` subcommand is the crux of provii as this is how you install the command-line utilities available via provii. Note that when you use provii using <<Method 1: `bash -c "$( curl l0xy.sh/provii )" $installer`,method 1>>, interally provii just runs this command. Example output of `provii install fd`:
+The `install` subcommand is the crux of provii as this is how you install the command-line utilities available via provii. Note that when you use provii using <<Method 1: curl `provii` directly into bash,method 1>>, interally provii just runs this command. Example output of `provii install fd`:
 
 image::examples/provii_install.png[provii install fd]
 
@@ -105,20 +106,24 @@ variables whose value is dependent upon the value of `$PROVII_SCOPE`::
   . `$PROVII_MAN` defined
   .. _when run as root_
     - if `/usr/share/man` listed in output of `manpath`, then `/usr/share/man` -> `$PROVII_MAN`
-    - else, first directory listed in the output of `manpath` -> `$PROVII_MAN`
+    - elif, first directory listed in the output of `manpath` -> `$PROVII_MAN`
+	- else, `$PROVII_MAN` remains unset
   .. _regular user_
     - if `~/.local/share/man` listed in output of `manpath`, then `~/.local/share/man` -> `$PROVII_MAN`
-    - else, first directory listed in the output of `manpath` prefixed with `$HOME` -> `$PROVII_MAN`
-  . when passed to subshell, `$PROVII_MAN` -> `$MAN`
+    - elif, first directory listed in the output of `manpath` prefixed with `$HOME` -> `$PROVII_MAN`
+	- else, `$PROVII_MAN` remains unset
+  . when passed to subshell, _if `$PROVII_MAN` was set_ `$PROVII_MAN` -> `$MAN`
   `$ZSH_COMP`:::
   . `$PROVII_ZSH_COMP` defined
   .. _when run as root_
-    * first directory contained in the value of `$fpath` containing `completion` prefixed with `/usr` or `/etc` -> `$PROVII_ZSH_COMP`
-    * else, first directory contained in the value of `$fpath` containing `custom` prefixed with `/usr` or `/etc` -> `$PROVII_ZSH_COMP`
+    * if first directory contained in the value of `$fpath` containing `completion` prefixed with `/usr` or `/etc` -> `$PROVII_ZSH_COMP`
+    * elif, first directory contained in the value of `$fpath` containing `custom` prefixed with `/usr` or `/etc` -> `$PROVII_ZSH_COMP`
+	* else, `$PROVII_ZSH_COMP` remains unset
   .. _when run as regular user_
-    * first directory contained in the value of `$fpath` containing `completion` prefixed with `$HOME` -> `$PROVII_ZSH_COMP`
-    * else, first directory contained in the value of `$fpath` containing `custom` prefixed with `$HOME` -> `$PROVII_ZSH_COMP`
-  . when passed to subshell, `$PROVII_ZSH_COMP` -> `$ZSH_COMP`
+    * if first directory contained in the value of `$fpath` containing `completion` prefixed with `$HOME` -> `$PROVII_ZSH_COMP`
+    * elif, first directory contained in the value of `$fpath` containing `custom` prefixed with `$HOME` -> `$PROVII_ZSH_COMP`
+	* else, `$PROVII_ZSH_COMP` remains unset
+  . when passed to subshell,  _if `$PROVII_ZSH_COMP` was set_ `$PROVII_ZSH_COMP` -> `$ZSH_COMP`
   `$BASH_COMP`:::
   . `$PROVII_BASH_COMP` defined
   .. _when run as root_
