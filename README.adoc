@@ -116,22 +116,22 @@ Variables defined in a `proviirc` file, should one exist on the machine, will no
 
 |$SCOPE
 a|
-. output of `id -u` determines `$PROVII_SCOPE`
+. output of `id -u` determines value of `$PROVII_SCOPE`
 . when passed to subshell, `$PROVII_SCOPE` -> `$SCOPE`
 
 |$OS
 a|
-. output of `uname -s` determines `$PROVII_SYSTEM`
+. output of `uname -s` determines value of `$PROVII_SYSTEM`
 . when passed to subshell, `PRVOII_SYSTEM` -> `$OS`
 
 |$ARCH
 a|
-. output of `uname -m` determines `$PROVII_MACHINE`
+. output of `uname -m` determines value of `$PROVII_MACHINE`
 . when passed to subshell, `PRVOII_MACHINE` -> `$ARCH`
 
 |$LIBC
 a|
-. output of `ldd --version` determines `$PROVII_LIBC`
+. output of `ldd --version` determines value of `$PROVII_LIBC`
 . when passed to subshell, `$PROVII_LIBC` -> `$LIBC`
 
 |$CACHE
@@ -146,14 +146,14 @@ a|
 
 |$BIN
 a|
-. `$PROVII_BIN` defined
+. value of `$PROVII_BIN` set
 .. _when run as root_, `PROVII_BIN=/usr/local/bin`
 .. _when run as regular user_, `PROVII_BIN=~/.local/bin`
 . when passed to subshell, `$PROVII_BIN` -> `$BIN`
 
 |$MAN
 a|
-. `$PROVII_MAN` defined
+. value of `$PROVII_MAN` set
 .. _when run as root_
 ... if `/usr/share/man` listed in output of `manpath`, then `/usr/share/man` -> `$PROVII_MAN`
 ... elif, first directory listed in the output of `manpath` -> `$PROVII_MAN`
@@ -166,7 +166,7 @@ a|
 
 |$ZSH_COMP
 a|
-. `$PROVII_ZSH_COMP` defined
+. value of `$PROVII_ZSH_COMP` set
 .. _when run as root_
 ... if first directory contained in the value of `$fpath` containing `completion` prefixed with `/usr` or `/etc` -> `$PROVII_ZSH_COMP`
 ... elif, first directory contained in the value of `$fpath` containing `custom` prefixed with `/usr` or `/etc` -> `$PROVII_ZSH_COMP`
@@ -179,7 +179,7 @@ a|
 
 |$BASH_COMP
 a|
-. `$PROVII_BASH_COMP` defined
+. value of `$PROVII_BASH_COMP` set
 .. _when run as root_, `PROVII_BASH_COMP=/etc/bash_completion.d`
 .. _when run as regular user_
 ... when `bash-completion` version >= 2.9, `PROVII_BASH_COMP=~/bash-completion.d`
