@@ -1,0 +1,25 @@
+# Sample ~/.config/proviirc with default values
+# variables without values have values that are dynamically determined at runtime,
+# unless they are explicitly defined in the proviirc, in which case that value is used
+
+PROVII_CACHE=~/.cache/provii
+PROVII_LOG=$PROVII_CACHE/run.log
+
+PROVII_SCOPE=
+PROVII_ARCH=
+PROVII_OS=
+PROVII_LIBC=
+
+# variables used when $PROVII_SCOPE == system
+
+PROVII_SYSTEM_BIN=/usr/local/bin
+PROVII_SYSTEM_MAN=/usr/share/man
+PROVII_SYSTEM_ZSH_COMP=
+PROVII_SYSTEM_BASH_COMP=/etc/bash_completion.d
+
+# variables used when $PROVII_SCOPE == user
+
+PROVII_USER_BIN=~/.local/bin
+PROVII_USER_MAN=~/.local/share/man
+PROVII_USER_ZSH_COMP=
+PROVII_USER_BASH_COMP=

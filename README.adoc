@@ -23,7 +23,7 @@ The easiest way to use provii is to curl the script and pipe it directly into ba
 [source,console]
 bash -c "$( curl l0xy.sh/provii )" fd
 
-Once run, provii will print out the location to which the binary will be installed and print some information as the script runs. See <<`provii install`,`provii install`>> for output.
+Once run, provii will print out the location to which the binary will be installed and print some information as the script runs. See <<provii install,`provii install`>> for output.
 
 The best part about running provii this way is that after the installation of a program such as `fd`, _the only files left on your machine will be the ones you requested_. In other words, when provii is run by downloading via `curl`/`wget` and piped directly into `bash`, there will be no trace of provii itself or any intermediary files used during the installation!
 
@@ -145,46 +145,14 @@ variables defined independently of the value of `$PROVII_SCOPE`::
 
 == Configuration
 
-No matter how you use provii, it will check for a configuration file containing variable definitions in the following locations:
+If you wish to change the default operation of provii as explained in the <<Environment,environment>> section, you may explicitly define the value of the variables that dictate the operation of provii in a `proviirc` file. `provii` will check for a configuration file containing variable definitions in the following locations:
 
 - `$XDG_CONFIG_HOME/proviirc`, if `$XDG_CONFIG_HOME` is defined
 - `$HOME/.config/proviirc` otherwise
 
-`provii` is designed to intelligently select directories and define variables without the need for a config file so you don't need to worry about creating one unless you have some special requirements.
-
-Below is a sample configuration file with all of the possible varaibles and their default values. Variables without values listed below do not have a hard-coded default value but rather, their value is dynamically determined at runtime unless they are explicitly defined in the configuration file. For more information see <<Environment,environment>>.
+Below is a sample configuration file with all of the possible variables and their default values. Variables without values listed below do not have a hard-coded default value but rather, their value is dynamically determined at runtime unless they are explicitly defined in the configuration file. For more information see <<Environment,environment>>.
 
 [NOTE]
 The `proviirc` can contain as few or as many variables as you wish. However, it would only make sense to explictly define a variable in `proviirc` if you wish to override the default value as determined by the logic explained in the  <<Environment,environment>> section.
 
-[source,bash]
-----
-# Sample ~/.config/proviirc with default values
-# variables without values have values that are dynamically determined at runtime,
-# unless they are explicitly defined in the proviirc, in which case that value is used
-
-PROVII_CACHE=~/.cache/provii
-PROVII_LOG=$PROVII_CACHE/run.log
-
-PROVII_SCOPE=
-PROVII_ARCH=
-PROVII_OS=
-PROVII_LIBC=
-
-# variables used when $PROVII_SCOPE == system
-
-PROVII_SYSTEM_BIN=/usr/local/bin
-PROVII_SYSTEM_MAN=/usr/share/man
-PROVII_SYSTEM_ZSH_COMP=
-PROVII_SYSTEM_BASH_COMP=/etc/bash_completion.d
-
-# variables used when $PROVII_SCOPE == user
-
-PROVII_USER_BIN=~/.local/bin
-PROVII_USER_MAN=~/.local/share/man
-PROVII_USER_ZSH_COMP=
-# when using `bash-completion` v2.9 or higher,
-PROVII_USER_BASH_COMP=${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion.d
-# when using `bash-completion` v2.8 or lower,
-PROVII_USER_BASH_COMP=~/.bash-completion.d
-----
+include::proviirc.example[]
