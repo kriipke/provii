@@ -1,6 +1,6 @@
 = provii
 
-`provii` is a tool to painlessly download your favorite command-line utilities as pre-compiled binaries on a machine that that may be missing them. It is a convenient alternative when you do not have the premissions required to install software using the systems package manager or when you do not wish to install the software system-wide. 
+`provii` is a provisioning tool to painlessly download your favorite command-line utilities as pre-compiled binaries on a machine that that may be missing them. It is a convenient alternative when you do not have the premissions required to install software using the systems package manager or when you do not wish to install the software system-wide. 
 
 The script itself is hosted both at https://l0xy.sh/provii and on link:https://raw.github.com/l0xy/provii/master/provii[Github]. Additionally, the list of installers available via `provii` can be found at link:https://github.com/l0xy/provii/tree/master/installs[here] (or listed using `provii` itself, see <<provii ls,`provii ls`>>)
 
@@ -18,7 +18,7 @@ For more information on where these files are installed and how that location is
 
 [NOTE]
 ====
-All the software's installed via provii come *directly from their authors*, e.g. the official Github repository or the official SourceForge page. So you can feel as safe installing all these softwares using provii as you would going to the project's home page and downloading them yourself.
+All the softwares installed via provii come *directly from their authors*, e.g. the official Github repository or the official SourceForge page. So you can feel as safe installing all these softwares using provii as you would going to the project's home page and downloading them yourself.
 ====
 
 The goal of provii is to save you the 5-6 steps you would typically have to take to download the most recent release from the author, unarchive it, and copy the binary & man pages / shell completions to the right folders. In other words, provii is designed to do exactly what _you_ would do, but automated.
