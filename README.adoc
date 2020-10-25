@@ -10,7 +10,7 @@ For example, during a typical install of `fd`, an alternative to the `find` tool
 . `fd` man page
 . `fd` shell completions
 
-For more information on where these files are installed and how that location is determined see <<Configuration>> below.
+For more information on where these files are installed and how that location is determined see <<Environment>> and <<How provii works,How `provii` works>> below.
 
 [NOTE]
 ====
@@ -77,9 +77,9 @@ Note that unless you are writing a provii installer yourself or are doing debugg
 
 For more information, run `provii cat -h`.
 
-== How it works
+== How `provii` works
 
-`provii` works by
+The script runs through the following steps to install a piece of software:
 
 . determining whether it is being run with root privilages or not and subsequently setting the variable `$PROVII_SCOPE`, which will either be defined as `system` or `user`
 . gathering information about directories to place binary files, man pages, and shell completions based on `$PROVII_SCOPE`
@@ -103,6 +103,25 @@ Below is a list of all the varaibles avaliable within the subshells (and consequ
 [NOTE]
 Variables defined in a `proviirc` file, should one exist on the machine, will not be set according to the logic below, but rather retain the value defined in the `proviirc` file (assuming that value is not null), see <<Configuration>> for more information.
 
+variables defined independently of the value of `$PROVII_SCOPE`::
+  `$SCOPE`:::
+  . output of `id -u` determines `$PROVII_SCOPE`
+  . when passed to subshell, `$PROVII_SCOPE` -> `$SCOPE`
+  `$OS`:::
+  . output of `uname -s` determines `$PROVII_SYSTEM`
+  . when passed to subshell, `PRVOII_SYSTEM` -> `$OS`
+  `$ARCH`:::
+  . output of `uname -m` determines `$PROVII_MACHINE`
+  . when passed to subshell, `PRVOII_MACHINE` -> `$ARCH`
+  `$LIBC`:::
+  . output of `ldd --version | head -1` determines `$PROVII_LIBC`
+  . when passed to subshell, `$PROVII_LIBC` -> `$LIBC`
+  `$CACHE`:::
+  . hard-coded, `PROVII_CACHE=~/.cache/provii`
+  . when passed to subshell, `$PROVII_CACHE` -> `$CACHE`
+  `$LOG`:::
+  . hard-coded, `PROVII_LOG=$PROVII_CACHE/run.log`
+  . when passed to subshell, `$PROVII_LOG` -> `$LOG`
 variables whose value is dependent upon the value of `$PROVII_SCOPE`::
   `$BIN`:::
   . `$PROVII_BIN` defined
@@ -143,25 +162,6 @@ variables whose value is dependent upon the value of `$PROVII_SCOPE`::
     . when `bash-completion` version < 2.9,
   	* `PROVII_BASH_COMP=${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion.d`
   . when passed to subshell, `$PROVII_BASH_COMP` -> `$BASH_COMP`
-variables defined independently of the value of `$PROVII_SCOPE`::
-  `$SCOPE`:::
-  . output of `id -u` determines `$PROVII_SCOPE`
-  . when passed to subshell, `$PROVII_SCOPE` -> `$SCOPE`
-  `$OS`:::
-  . output of `uname -s` determines `$PROVII_SYSTEM`
-  . when passed to subshell, `PRVOII_SYSTEM` -> `$OS`
-  `$ARCH`:::
-  . output of `uname -m` determines `$PROVII_MACHINE`
-  . when passed to subshell, `PRVOII_MACHINE` -> `$ARCH`
-  `$LIBC`:::
-  . output of `ldd --version | head -1` determines `$PROVII_LIBC`
-  . when passed to subshell, `$PROVII_LIBC` -> `$LIBC`
-  `$CACHE`:::
-  . hard-coded, `PROVII_CACHE=~/.cache/provii`
-  . when passed to subshell, `$PROVII_CACHE` -> `$CACHE`
-  `$LOG`:::
-  . hard-coded, `PROVII_LOG=$PROVII_CACHE/run.log`
-  . when passed to subshell, `$PROVII_LOG` -> `$LOG`
 
 == Configuration
 
