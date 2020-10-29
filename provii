@@ -368,20 +368,77 @@ EOF
 fn___dl_github_asset=$(
 	cat <<'EOF'
 BASH_FUNC___dl_github_asset%%=() {
-	local RE FQDN URI URL RELEASE MSG
+	local RE FQDN URI ASSET_URL RELEASE MSG
 	
 	FQDN='https://api.github.com'
 	RELEASE="${3+tags/$3}"
 	RE="${2//\\/\\\\}"
-	URI="/repos/$1/releases/${RELEASE:-latest}"
+	REPO="$1"
+	URI="/repos/$REPO/releases/${RELEASE:-latest}"
 
 	JQ_CMD='[.assets[] | { asset:.name, url:.browser_download_url }]'
 	ASSETS="$( curl -sSL "$FQDN$URI" | "$JQ" "$JQ_CMD" )"
 
 	JQ_CMD=$( printf '.[] | select( .asset | test("%s")).url' "$RE" )
-	URL=$( echo "$ASSETS" | "$JQ" -r "$JQ_CMD" )
+	ASSET_URL=$( echo "$ASSETS" | "$JQ" -r "$JQ_CMD" )
 
-	if [ "$(echo "$URL" | wc -w)" -gt 1 ]; then
+	# if asset not found, search search using compatible architectures
+	if [ -z "$ASSET_URL" ]; then
+		case "$(uname -m)" in
+			*amd64*)
+				ALT_RE_1="${RE//amd64/[xX]86_64}" ;;
+			*x86_64*)
+				ALT_RE_1="${RE//x86_64/(amd64|AMD64)}" ;;
+			aarch64)
+				ALT_RE_1="${RE//aarch64/(arm64|ARM64)}" ;;
+			aarch64_be)
+				ALT_RE_1="${RE//aarch64_be/(aarch64|AARCH64|arm64|ARM64)}" ;;
+			armv8b)
+				ALT_RE_1="${RE//armv8b/(aarch64|AARCH64|arm64|ARM64)}" ;;
+			armv8l)
+				ALT_RE_1="${RE//armv8b/(aarch64|AARCH64|arm64|ARM64)}" ;;
+			*i386*)
+				ALT_RE_1="${RE//i386/i686}" ;;
+			*i586*)
+				ALT_RE_1="${RE//i386/(i386|i686)}" ;;
+			*i686*)
+				ALT_RE_1="${RE//i386/i386}" ;;
+			*)
+				err "Machine architecture $(uname -m) not currently supported by provii." \
+					"Failed to download binary for $NAME." ;;
+		esac
+
+		JQ_CMD=$( printf '.[] | select( .asset | test("%s")).url' "$ALT_RE_1" )
+		ASSET_URL=$( echo "$ASSETS" | "$JQ" -r "$JQ_CMD" )
+	fi
+	
+	# if asset not found, search using memory addressing scheme (32/64) for architecture
+	if [ -z "$ASSET_URL" ]; then
+		case "$(uname -m | tr "[:upper:]" "[:lower:]")" in
+			amd64 | x86_64 | aarch64 | aarch64_be | armv8b | armv8l)
+				ALT_RE_2="${RE//amd64/(64bit|64BIT|64|[xX]?64)}" ;;
+			i386 | i586 | i686)
+				ALT_RE_2="${RE//i386/(32bit|32BIT|32|[xX]86[^_])}" ;;
+			*)
+				err "Machine architecture $(uname -m) not currently supported by provii." \
+					"Failed to download binary for $NAME." ;;
+		esac
+
+		JQ_CMD=$( printf '.[] | select( .asset | test("%s")).url' "$ALT_RE_2" )
+		ASSET_URL=$( echo "$ASSETS" | "$JQ" -r "$JQ_CMD" )
+	fi
+
+	# if asset not found, all options have been exhausted at this point
+	if [ -z "$ASSET_URL" ]; then
+		SUBMSG=$( printf 'No Github asset found for %s that matches: %s' \
+			"$1" "${CYAN}$RE${STYLE_RESET}" )
+		ASSET_NAMES="$( echo "$ASSETS" | "$JQ" -r '.[].asset_name' )"
+		MSG="$( printf '%s\nAssets found for %s:\n\n%s' \
+			"$SUBMSG" "${CYAN}$1${STYLE_RESET}" "$ASSET_NAMES" )"
+		err "$MSG"
+	fi
+
+	if [ "$(echo "$ASSET_URL" | wc -w)" -gt 1 ]; then
 		SUBMSG=$(printf \
 			'Regular expression %s matched more than one Github asset.' \
 			"${CYAN}${RE}${STYLE_RESET}" )
@@ -391,17 +448,10 @@ BASH_FUNC___dl_github_asset%%=() {
 
 		MSG="$( printf '%s Assets matched:\n\n%s\n' "$SUBMSG" "$ASSET_NAMES" )"
 		err "$MSG"
-	elif [ -z "$URL" ]; then
-		SUBMSG=$( printf 'No Github asset found for %s that matches: %s' \
-			"$1" "${CYAN}$RE${STYLE_RESET}" )
-		ASSET_NAMES="$( echo "$ASSETS" | "$JQ" -r '.[].asset_name' )"
-		MSG="$( printf '%s\nAssets found for %s:\n\n%s' \
-			"$SUBMSG" "${CYAN}$1${STYLE_RESET}" "$ASSET_NAMES" )"
-		err "$MSG"
 	fi
 
-	printf '\n%s/%s\n' "$PWD" "${CYAN}${URL##*/}${STYLE_RESET}"
-	curl -#LO "$URL"
+	printf '\n%s/%s\n' "$PWD" "${CYAN}${ASSET_URL##*/}${STYLE_RESET}"
+	curl -#LO "$ASSET_URL"
 }
 EOF
 )
@@ -599,18 +649,8 @@ run_installer() {
 	esac
 
 	# see, https://en.wikipedia.org/wiki/Uname#Examples
-	PROVII_SYSTEM="$(uname -s | tr "[:upper:]" "[:lower:]")"
-	case "$(uname -m)" in
-	amd64 | x86_64)
-		PROVII_MACHINE='(x86_64|amd64)'
-		;;
-	i386 | i586 | i686)
-		PROVII_MACHINE='(i386|i586|i686)'
-		;;
-	*)
-		PROVII_MACHINE=unknown
-		;;
-	esac
+	PROVII_SYSTEM="${PROVII_SYSTEM:-"$(uname -s | tr "[:upper:]" "[:lower:]")"}"
+	PROVII_ARCH="${PROVII_ARCH:-"$(uname -m | tr "[:upper:]" "[:lower:]")"}"
 
 	[ "$(id -u)" -eq "0" ] &&
 		PROVII_SCOPE=system ||
@@ -657,7 +697,7 @@ run_installer() {
 		${PROVII_CACHE:+CACHE="${PROVII_TEMP:-$PROVII_CACHE}"} \
 		${PROVII_LOG:+LOG="$PROVII_LOG"} \
 		${PROVII_LIBC:+LIBC="$PROVII_LIBC"} \
-		${PROVII_MACHINE:+ARCH="$PROVII_MACHINE"} \
+		${PROVII_ARCH:+ARCH="$PROVII_ARCH"} \
 		${PROVII_SYSTEM:+OS="$PROVII_SYSTEM"} \
 		${UNDERLINE:+UNDERLINE="$UNDERLINE"} \
 		${NO_UNDERLINE:+NO_UNDERLINE="$NO_UNDERLINE"} \
@@ -678,7 +718,7 @@ run_installer() {
 }
 
 if command -v jq >/dev/null 2>&1; then
-	JQ="$( command -v jq )"
+	JQ="$(command -v jq)"
 else
 	install_jq
 fi

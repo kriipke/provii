@@ -3,23 +3,6 @@
 # easily and securely send things from one computer to another
 # https://github.com/schollz/croc
 
-case $ARCH in
-*arm*64* | *aarch*64*)
-	ARCH='ARM64'
-	;;
-*arm* | *aarch*)
-	ARCH='ARM'
-	;;
-*64*)
-	case $OS in
-	*linux* | *darwin*)
-		ARCH='64bit'
-	esac
-	;;
-*)
-	ARCH='32bit'
-esac
-
 github schollz/croc "$OS-$ARCH.tar.gz"
 tar xf ./* croc
 install croc $BIN/
