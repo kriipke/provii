@@ -1,80 +1,53 @@
 #!/bin/bash -e
 
+if command -v tabs >/dev/null 2>&1; then
+	tabs -4
+	trap "tabs -0" EXIT
+fi
+
 if [ "$DEBUG" ]; then
 	set -x
 	VERBOSE=1
-	PS4='${TAB}${MAGENTA}provii.sh $LINENO ::${STYLE_RESET} '
+	PS4='${TAB}${MAGENTA} $LINENO ::${STYLE_RESET} '
 fi
 
-PROVII_BRANCH=
+PROVII_BRANCH="arch_regex"
+PROVII_VARS='\(OS\|SCOPE\|LIBC\|BASH_COMP\|ZSH_COMP\|MAN\|NAME\|CACHE\|CFG\|ARCH\|BIN\|LOG\)'
 
 if command -v tput >/dev/null 2>&1; then
 	TAB="$(tput ht 2>/dev/null || echo '')"
 	if [ $(($(tput colors 2>/dev/null))) -ge 8 ]; then
+		RED="$(tput setaf 3 2>/dev/null || echo '')"
 		MAGENTA="$(tput setaf 5 2>/dev/null || echo '')"
 		CYAN="$(tput setaf 6 2>/dev/null || echo '')"
 		UNDERLINE="$(tput smul 2>/dev/null || echo '')"
 		NO_UNDERLINE="$(tput rmul 2>/dev/null || echo '')"
 		STYLE_RESET="$(tput sgr0 2>/dev/null || echo '')"
 	fi
+	_STYLE_ERROR="$MAGENTA"
+	_STYLE_ECHO="$MAGENTA"
+	_STYLE_VARS="$MAGENTA"
+	_STYLE_HEADER="${UNDERLINE}${CYAN}"
+	_STYLE_INFO="$RED"
 fi
 
-install_jq() {
-	case "$(uname -s)" in
-	darwin)
-		JQ_URL='https://github.com/stedolan/jq/releases/download/jq-1.6/jq-osx-amd64'
-		;;
-	linux)
-		case "$(uname -m)" in
-		x86_64 | amd64 | aarch64)
-			JQ_URL='https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64'
-			;;
-		i386 | i586 | i686)
-			JQ_URL='https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux32'
-			;;
-		esac
-		;;
-	esac
-
-	[ -d "$HOME/.local/bin" ] && create_dir "$HOME/.local/bin"
-	curl -sSLo "$HOME/.local/bin/jq" "$JQ_URL"
-	JQ="$(command -v jq || "$HOME/.local/bin/jq")"
-}
-
-create_dir() {
-	for dir in "$@"; do
-		if [ ! -d "$dir" ] && [ -w "$(dirname "$dir")" ]; then
-			mkdir -p "$dir"
-			if [ "$?" -eq 0 ]; then
-				log --created "$dir"
-			else
-				warn Failed to create "$dir"
-				return 1
-			fi
-		fi
-	done
-}
-
-print_usage() {
-	if [ "$#" -eq 0 ]; then
-		echo '
+_help='
 provii - command line utility installer
-Usage: 
-       provii [OPTIONS] install UTILITY
-       provii [OPTIONS] env [UTILITY]
-       provii [OPTIONS] cat UTILITY
-       provii [OPTIONS] ls
+usage: 
+       provii install [-vi] APPLICATION
+       provii env [APPLICATION]
+       provii cat APPLICATION
+       provii ls
        provii help [SUBCOMMAND]
 
 OPTIONS:
--h, --help      print this message
--b, --branch    choose which provii branch to work with
--v, --verbose   prints various information depending on subcommand'
-	else
-		case "$1" in
-		install)
-			echo '
-Usage: provii install UTILITY
+-h, --help          print this message
+-b, --branch        choose which provii branch to work with
+-i, --interactive   confirm any changes to the system before they are made
+-v, --verbose       prints various information depending on subcommand'
+
+_help_install='
+usage: provii install APPLICATION
 
 For a list of possible utilities see:
 	provii ls
@@ -84,10 +57,9 @@ To see the script that will be run by provii install run:
 
 To view the values that will be used in the variables defined in the script run:
 	provii env UTILITY'
-			;;
-		env)
-			echo '
-Usage: provii env [UTILITY]
+
+_help_env='
+usage: provii env [UTILITY]
 
 When run without any arguments provii env will show the variables 
 will populate the subshell provii runs its installers in *regardless*
@@ -125,90 +97,192 @@ variables will also be shown:
 $NAME    - the name of the command/binary file
 $CACHE   - the subdirectory within the main $CACHE for any files 
            generated during the installation of $NAME'
-			;;
-		cat)
-			echo '
-Usage: provii cat UTILITY
+
+_help_cat='
+usage: provii cat UTILITY
 
 Prints the entire script that is execute when `provii install UTILITY` is run'
-			;;
-		ls)
-			echo '
-Usage: provii ls
+
+_help_ls='
+usage: provii ls
 
 Prints out all possible utilities that can be installed
 with provii along with a brief description.'
-			;;
-		*)
+
+usage_error() {
+	echo $(basename "$0"): ERROR: "$2" 1>&2
+	print_usage "$1" 1>&2
+	exit 1
+}
+
+print_usage() {
+	if [ "$#" -eq 0 ]; then
+		echo "$_help"
+	else
+		if [ -v "_help_$1" ]; then
+			eval echo "$(printf '"$_help_%s"' $1)"
+		else
 			print_usage
-			;;
-		esac
+		fi
 	fi
 	exit
 }
 
-get_installer() {
-	GITHUB_QUERY="$(printf 'https://api.github.com%s%s' \
-		"/repos/l0xy/provii/contents/installs/$INSTALLER" \
-		"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}")"
-	curl -sSL "$GITHUB_QUERY" |
-		"$JQ" '.download_url' |
-		xargs curl -sSL
+has_cmd() {
+	if command -v "$1" >/dev/null 2>&1; then
+		return 0
+	else
+		return 1
+	fi
 }
 
-ls_installers() {
-	GITHUB_QUERY_LS="$(printf \
-		"https://api.github.com/repos/l0xy/provii/contents/installs%s" \
-		"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}")"
-	JQ_QUERY='.[] | [ .name, .download_url ] | @csv'
-
-	while IFS=',' read -r SOFTWARE_NAME SCRIPTLET_URL; do
-		curl -sSL "$SCRIPTLET_URL" | awk -v name="$SOFTWARE_NAME" '
-				BEGIN{ RS=""; FS="\n"; OFS="\n"; ORS=""}
-				{ 
-					if (NR == 2) {
-						{
-						if (match($NF, /http[^ ]*[ ]*$/, url))
-							$NF=""
-							web=url[0]
-						}
-						gsub( /# /, "")
-						gsub( /\n/, " ")
-						printf("%s\n%s\n%s\n\n", name, $0, web)
-					}
-			}' | awk \
-			-v url_color="${BLUE}${UNDERLINE}" \
-			-v url_end_style="${STYLE_RESET}${NO_UNDERLINE}" \
-			-v name_color="${STYLE_RESET}${MAGENTA}" \
-			-v style_reset="${STYLE_RESET}${STYLE_RESET}" \
-			-v col_width_desc=80 \
-			-v list_urls="true" ' 
-				BEGIN{ 
-					RS=""
-					FS="\n"
-				}{
-					if ( list_urls == "" )
-					{
-						$3=""
-					}
-					fmt=sprintf("%%s%%10-s%%s%%-%ss%%5s%%s\n", col_width_desc)
-					printf(fmt,
-						name_color, $1, style_reset,
-						$2,
-						url_color, $3, url_end_style)
-				}'
-	done < <(curl -sSL "$GITHUB_QUERY_LS" | "$JQ" -r "$JQ_QUERY" | tr -d '"')
+create_dir() {
+	for dir in "$@"; do
+		if [ ! -d "$dir" ] && [ -w "$(dirname "$dir")" ]; then
+			mkdir -p "$dir"
+			if [ "$?" -eq 0 ]; then
+				log --created "$dir"
+			else
+				warn Failed to create "$dir"
+				return 1
+			fi
+		fi
+	done
 }
 
-set_pv_bin() {
+#  installs jq to $HOME/.local/bin/jq, where it will be looked
+#- for in the event that it cannot be found by searching $PATH
+install_jq() {
+	JQ_VERSION="1.6"
+	JQ_URL="https://github.com/stedolan/jq/releases/download/jq-$JQ_VERSION"
+	JQ_TARGET_DIR="$HOME/.local/bin"
+
+	set_provii_os
+	set_provii_arch
+
+	if [ "$PROVII_OS" == 'darwin' ]; then
+		JQ_FILE="jq-osx-amd64"
+	else
+		case "$PROVII_ARCH" in
+		x86_64 | amd64 | aarch64)
+			JQ_FILE="jq-linux64"
+			;;
+		i386 | i586 | i686)
+			JQ_FILE="jq-linux32"
+			;;
+		esac
+	fi
+
+	[ -d "$JQ_TARGET_DIR" ] || create_dir "$JQ_TARGET_DIR"
+	curl -sSLo "$JQ_TARGET_DIR/jq" "$JQ_URL/$JQ_FILE"
+
+	JQ="$(command -v jq || "$JQ_TARGET_DIR/jq")"
+
+	if [ -z "$JQ" ]; then
+		err 'Function install_jq failed to set $JQ to path of jq.'
+	else
+		return 0
+	fi
+}
+
+source_proviirc() {
+	if [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/proviirc" ]; then
+		PROVIIRC="${XDG_CONFIG_HOME-$HOME/.config}/proviirc"
+
+		printf '%sINFO%s sourcing %s\n' \
+			"${_STYLE_INFO}" \
+			"${STYLE_RESET}" \
+			"${CYAN}$PROVIIRC${STYLE_RESET}"
+
+		if [ "$VERBOSE" ]; then
+			_PROVIIRC_VARS_RE=$(printf '^PROVII_%s=\\b' $PROVII_VARS)
+			printf '%s%s\n' "$TAB" $(grep $_PROVIIRC_VARS_RE $PROVIIRC)
+		fi
+
+		. "$PROVIIRC"
+	fi
+}
+
+set_provii_cache() {
+	CACHE_DEFAULT="${XDG_CACHE_HOME-$HOME/.cache}/provii"
+
+	if [ -n "$PROVII_CACHE" ]; then
+		if [ ! -w "$PROVII_CACHE" ]; then
+			err 'The value provided for $PROVII_CACHE either does' \
+				'note exist or is not writable, please fix.'
+		fi
+	fi
+
+	PROVII_CACHE="$CACHE_DEFAULT"
+	create_dir "$PROVII_CACHE"
+}
+
+set_provii_bin() {
 	case "$PROVII_SCOPE" in
-	system) PROVII_BIN=${SYS_BIN-/usr/local/bin} ;;
-	user) PROVII_BIN=${USER_BIN-$HOME/.local/bin} ;;
+	system)
+		if [ -n "$PROVII_SYSTEM_BIN" ]; then
+			if [ ! -w "$PROVII_SYSTEM_BIN" ]; then
+				warn 'The value provided for $PROVII_SYSTEM_BIN either does' \
+					'not exist or is not writable, please fix.'
+			else
+				return 0
+			fi
+		else
+
+			if has_cmd systemd-path; then
+				BIN_DEFAULT=$(systemd-path system-binaries)
+				PATH_DIRS="$(systemd-path search-binaries | sed 's/:/\n/g')"
+			else
+				BIN_DEFAULT=/usr/bin
+				PATH_DIRS="$(echo "$PATH" | sed 's/:/\n/g')"
+			fi
+			BIN_FALLBACK=/usr/local/bin
+
+			if echo "$PATH_DIRS" | grep -q "$BIN_DEFAULT"; then
+				create_dir "$BIN_DEFAULT"
+				PROVII_BIN="$BIN_DEFAULT"
+			elif echo "$PATH_DIRS" | grep -q "$BIN_FALLBACK"; then
+				create_dir "$BIN_FALLBACK"
+				PROVII_BIN="$BIN_FALLBACK"
+			else
+				warn "$PROVII_BIN" temporarily added \
+					to PATH, manually add it to your shell configuration
+			fi
+		fi
+		;;
+	user)
+		if [ -n "$PROVII_USER_BIN" ]; then
+			if [ ! -w "$PROVII_USER_BIN" ]; then
+				warn 'The value provided for $PROVII_SYSTEM_BIN either does' \
+					'not exist or is not writable, please fix.'
+			else
+				return 0
+			fi
+		else
+
+			if has_cmd systemd-path; then
+				BIN_DEFAULT=$(systemd-path user-binaries)
+				PATH_DIRS="$(systemd-path search-binaries | sed 's/:/\n/g')"
+			else
+				BIN_DEFAULT=$HOME/.local/bin
+				PATH_DIRS="$(echo "$PATH" | sed 's/:/\n/g')"
+			fi
+			BIN_FALLBACK=$HOME/bin
+
+			if echo "$PATH_DIRS" | grep -q "$BIN_DEFAULT"; then
+				create_dir "$BIN_DEFAULT"
+				PROVII_BIN="$BIN_DEFAULT"
+			elif echo "$PATH_DIRS" | grep -q "$BIN_FALLBACK"; then
+				create_dir "$BIN_FALLBACK"
+				PROVII_BIN="$BIN_FALLBACK"
+			fi
+		fi
+		;;
 	esac
 	create_dir "${PROVII_BIN:?'Failed to set variable $BIN'}"
 }
 
-set_pv_data() {
+set_provii_data() {
 	case "$PROVII_SCOPE" in
 	system) PROVII_DATA=${SYS_DATA-/usr/local/share} ;;
 	user) PROVII_DATA=${USER_DATA-$HOME/.local/share} ;;
@@ -216,32 +290,102 @@ set_pv_data() {
 	create_dir "${PROVII_DATA:?'Failed to set variable $DATA'}"
 }
 
-set_pv_man() {
+query_package() {
+	if [ "$#" -eq 2 ] && [ "$1" == '--version' ] && [ -n "$2" ]; then
+		ECHO_PACKAGE_VERSION=1
+		PACKAGE="$2"
+	elif [ "$#" -eq 2 ] && [ -n "$1" ]; then
+		PACKAGE="$1"
+	else
+		err "Usage: query_package [--version] PACKAGE"
+	fi
+
+	if command -v rpm &>/dev/null; then
+		QUERYPKG_CMD_FMT='rpm -qa --queryformat %s  name=%s'
+	elif command -v dpkg-query &>/dev/null; then
+		QUERYPKG_CMD_FMT='dpkg-query --showformat=%s --show %s'
+	else
+		err "Function query_package failed to locate " \
+			"either (1) rpm or (2) dpkg-query commands."
+	fi
+
+	PACKAGE_VERSION="$($(printf "$QUERYPKG_CMD_FMT" '%{VERSION}\n' "$PACKAGE"))"
+	if [ -n "$PACKAGE_VERSION" ]; then
+		[ "$ECHO_PACKAGE_VERSION" ] && echo "$PACKAGE_VERSION"
+		return 0
+	else
+		return 1
+	fi
+}
+
+set_provii_log() {
+	LOG_DEFAULT="$HOME/.provii.log"
+	PROVII_LOG=${PROVII_LOG:-"$LOG_DEFAULT"}
+}
+
+set_provii_man() {
 	case "$PROVII_SCOPE" in
 	system)
+		if [ -n "$PROVII_SYSTEM_MAN" ]; then
+			PROVII_MAN="$PROVII_SYSTEM_MAN"
+			return 0
+		fi
+
+		MAN_DIR_PREFERRED="/usr/local/share/man"
+		MAN_DIR_ALT="/usr/share/man"
+
 		if command -v manpath &>/dev/null; then
-			for MAN_PATH in $(manpath -g | tr : $'\n'); do
-				if [ -d "$MAN_PATH" ] && [ -w "$MAN_PATH" ]; then
-					PROVII_MAN="$MAN_PATH"
-					break
-				fi
-			done
+			MANPATH_DIRS="$(manpath -g | tr : $'\n')"
+			if echo "$MANPATH_DIRS" | grep -q "$MAN_DIR_PREFERRED"; then
+				PROVII_MAN="$MAN_DIR_PREFERRED"
+			elif echo "$MANPATH_DIRS" | grep -q "$MAN_DIR_ALT"; then
+				PROVII_MAN="$MAN_DIR_ALT"
+			fi
+
+		else
+			if query_package 'man-db'; then
+				PROVII_MAN="$MAN_DIR_ALT"
+			else
+				warn 'Package not installed: man-db. Failed to set $BASH_COMP variable.'
+			fi
 		fi
 		;;
 	user)
+		if [ -n "$PROVII_USER_MAN" ]; then
+			PROVII_MAN="$PROVII_USER_MAN"
+			PROVII_MAN="$MAN_DIR_ALT"
+			return 0
+		fi
+
+		MAN_DIR_PREFERRED="${XDG_DATA_HOME:-HOME/.local/share}/man"
+
 		if command -v manpath &>/dev/null; then
-			PROVII_MAN=${USER_MAN-"$(manpath | tr : $'\n' | grep -m 1 "$HOME")"}
+			MANPATH_DIRS="$(manpath | tr ":" $'\n')"
+			if echo "$MANPATH_DIRS" | grep -q "$MAN_DIR_PREFERRED"; then
+				PROVII_MAN="$MAN_DIR_PREFERRED"
+			elif echo "$MANPATH_DIRS" | grep -q "$HOME"; then
+				PROVII_MAN="$(echo "$MANPATH_DIRS" | grep -m 1 "$HOME")"
+			else
+				# else, add MAN_DIR_PREFERRED to manpath
+				PROVII_MAN="${XDG_DATA_HOME:-HOME/.local/share}/man"
+				echo "MANDATORY_MANPATH $PROVII_MAN" >"$HOME/.manpath"
+				create_dir "$PROVII_MAN"/man{1,5,8}
+			fi
+		else
+			if query_package 'man-db'; then
+				# else, add MAN_DIR_PREFERRED to manpath
+				PROVII_MAN="${XDG_DATA_HOME:-HOME/.local/share}/man"
+				echo "MANDATORY_MANPATH $PROVII_MAN" >"$HOME/.manpath"
+				create_dir "$PROVII_MAN"/man{1,5,8}
+			else
+				warn 'Package not installed: man-db. Failed to set $BASH_COMP variable.'
+			fi
 		fi
-		if [ -z "$PROVII_MAN" ]; then
-			PROVII_MAN="$PROVII_DATA/man"
-			echo "MANDATORY_MANPATH $PROVII_MAN" >"$HOME/.manpath"
-		fi
-		create_dir "$PROVII_MAN"/man{1,8}
 		;;
 	esac
 }
 
-set_pv_bash_comp() {
+set_provii_bash_comp() {
 	case "$PROVII_SCOPE" in
 	system)
 		PROVII_BASH_COMP=${SYS_BASH_COMP-/etc/bash_completion.d}
@@ -256,17 +400,7 @@ set_pv_bash_comp() {
 		;;
 	user)
 		# bash-completion 2.9 introduced ${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion.d
-		if command -v rpm &>/dev/null; then
-			QUERYPKG_CMD_FMT='rpm -qa --queryformat %s  name=%s'
-		elif command -v dpkg-query &>/dev/null; then
-			QUERYPKG_CMD_FMT='dpkg-query --showformat=%s --show %s'
-		fi
-
-		if [ "$QUERYPKG_CMD_FMT" ]; then
-			BASH_COMP_VER="$($(printf "$QUERYPKG_CMD_FMT" '%{VERSION}\n' 'bash-completion'))"
-		else
-			warn "Could not locate either rpm / dkpg-query command to determine version of bash-completion"
-		fi
+		BASH_COMP_VER="$(query_package --version 'bash-completion')"
 
 		if [ -n "$BASH_COMP_VER" ]; then
 			XDG_ENABLED_BASH_COMP_VER='2.9'
@@ -299,7 +433,7 @@ set_pv_bash_comp() {
 	esac
 }
 
-set_pv_zsh_comp() {
+set_provii_zsh_comp() {
 	case "$PROVII_SCOPE" in
 	system)
 		if command -v zsh >/dev/null 2>&1; then
@@ -326,6 +460,163 @@ set_pv_zsh_comp() {
 		fi
 		;;
 	esac
+}
+
+set_provii_libc() {
+	if command -v ldd >/dev/null 2>&1; then
+		case "$(ldd --version 2>&1 | head -1 | tr "[:upper:]" "[:lower:]")" in
+		*musl*) PROVII_LIBC=musl ;;
+		*gnu* | *glibc*) PROVII_LIBC=gnu ;;
+		*) err "failed to determine libc version, exiting." ;;
+		esac
+	else
+		err "provii requires command 'ldd' to run, exiting."
+	fi
+}
+
+set_provii_os() {
+	# see, https://en.wikipedia.org/wiki/Uname#Examples
+	PROVII_OS="${PROVII_OS:-"$(uname -s | tr "[:upper:]" "[:lower:]")"}"
+}
+
+set_provii_arch() {
+	PROVII_ARCH="${PROVII_ARCH:-"$(uname -m | tr "[:upper:]" "[:lower:]")"}"
+}
+
+set_provii_scope() {
+	if [ "$(id -u)" -eq "0" ]; then
+		PROVII_SCOPE=system
+	else
+		PROVII_SCOPE=user
+	fi
+}
+
+get_installer() {
+	GITHUB_QUERY="$(printf 'https://api.github.com%s%s' \
+		"/repos/l0xy/provii/contents/installs/$INSTALLER" \
+		"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}")"
+	curl -sSL "$GITHUB_QUERY" |
+		"$JQ" '.download_url' |
+		xargs curl -sSL
+}
+
+get_installer_vars() {
+	_INSTALLER_VARS_RE=$(echo -E $PROVII_VARS | sed -E 's/(\\[(|])/\1$/g')
+	MSG="Installation script has not been downloaded yet"
+	_INSTALLER_VARS=$(echo "${INSTALLATION_SCRIPT?"$MSG"}" | grep -o $_INSTALLER_VARS_RE)
+	printf '\n%s' $_INSTALLER_VARS
+}
+
+show_installer_targets() {
+	INSTALLER="$1"
+	_INSTALLER_VARS="$(get_installer_vars "$INSTALLER")"
+
+	target_exe="$(printf "EXECUTABLE\t%s/%s\n" "$PROVII_BIN" "$INSTALLER")"
+
+	if [ "$PROVII_BASH_COMP" ]; then
+		if echo "$_INSTALLER_VARS" | grep -q '$BASH_COMP'; then
+			target_bash_comp="$(printf "BASH COMPLETIONS\t%s/%s.bash-completion\n" "$PROVII_BASH_COMP" "$INSTALLER")"
+		fi
+	fi
+	if [ "$PROVII_ZSH_COMP" ]; then
+		if echo "$_INSTALLER_VARS" | grep -q '$ZSH_COMP'; then
+			target_zsh_comp="$(printf "ZSH COMPLETIONS\t%s/_%s\n" "$PROVII_ZSH_COMP" "$INSTALLER")"
+		fi
+	fi
+	if [ "$PROVII_MAN" ]; then
+		if echo "$_INSTALLER_VARS" | grep -q '$MAN'; then
+			_MAN_SUBDIR="$(echo "$INSTALLATION_SCRIPT" | sed -En 's#^.*\$MAN(\")?/(man[0-9]).*$#\2#p')"
+			target_man="$(printf "MAN PAGE\t%s/%s/$INSTALLER.${_MAN_SUBDIR#man}\n" "$PROVII_MAN" "$_MAN_SUBDIR")"
+		fi
+	fi
+
+	OLD_IFS="$IFS"
+	export IFS=$'\n'
+
+	target_dirs="$(
+		printf '\n%s' \
+			${target_exe:+$target_exe} \
+			${target_man:+$target_man} \
+			${target_zsh_comp:+$target_zsh_comp} \
+			${target_bash_comp:+$target_bash_comp}
+	)"
+
+	_COL1_WIDTH=0
+	_TABLE_WIDTH=0
+
+	for line in $target_dirs; do
+		col1_len="$(echo "$line" | cut -d$'\t' -f1 | wc -c)"
+		[ "$col1_len" -gt "$_COL1_WIDTH" ] && _COL1_WIDTH="$col1_len"
+		full_line_len="$(echo "$line" | wc -c)"
+		[ "$full_line_len" -gt "$_TABLE_WIDTH" ] && _TABLE_WIDTH="$full_line_len"
+	done
+
+	header_fmt="$(printf '\n%s%%-%is\n\n%s' "${_STYLE_HEADER}" "$_TABLE_WIDTH" "${STYLE_RESET}")"
+	printf "$header_fmt" "$INSTALLER"
+
+	echo "$target_dirs" | awk \
+		-v col1_width="$_COL1_WIDTH" \
+		-v style1="$_STYLE_ECHO" \
+		-v nostyle="$STYLE_RESET" \
+		'BEGIN{ 
+			FS="\t"; RS="\n"; 
+		}{ 
+			fmt=sprintf(" %s%%-%is%s%%s\n", style1, col1_width, nostyle)
+			printf(fmt, $1, $2)
+		}'
+
+	if [ "$INTERACTIVE" ]; then
+		read -p "$(printf '\n%s' 'Press Enter to continue.')"
+	fi
+	IFS="$OLD_IFS"
+}
+
+ls_installers() {
+	GITHUB_QUERY_LS="$(printf \
+		"https://api.github.com/repos/l0xy/provii/contents/installs%s" \
+		"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}")"
+	JQ_QUERY='.[] | [ .name, .download_url ] | @csv'
+
+	(
+		while IFS=',' read -r SOFTWARE_NAME INSTALLATION_SCRIPT_URL; do
+			curl -sSL "$INSTALLATION_SCRIPT_URL" | awk -v name="$SOFTWARE_NAME" '
+				BEGIN{ RS=""; FS="\n"; OFS="\n"; ORS=""}
+				{ 
+					if (NR == 2) {
+						{
+						if (match($NF, /http[^ ]*[ ]*$/, url))
+							$NF=""
+							web=url[0]
+						}
+						gsub( /# /, "")
+						gsub( /\n/, " ")
+						printf("%s\n%s\n%s\n\n", name, $0, web)
+					}
+			}' | awk \
+				-v url_color="${BLUE}${UNDERLINE}" \
+				-v url_end_style="${STYLE_RESET}${NO_UNDERLINE}" \
+				-v name_color="${STYLE_RESET}${MAGENTA}" \
+				-v style_reset="${STYLE_RESET}${STYLE_RESET}" \
+				-v col_width_desc=80 \
+				-v list_urls="true" ' 
+				BEGIN{ 
+					RS=""
+					FS="\n"
+				}{
+					if ( list_urls == "" )
+					{
+						$3=""
+					}
+					fmt=sprintf("%%s%%10-s%%s%%-%ss%%5s%%s\n", col_width_desc)
+					printf(fmt,
+						name_color, $1, style_reset,
+						$2,
+						url_color, $3, url_end_style)
+				}'
+		done < <(curl -sSL "$GITHUB_QUERY_LS" | "$JQ" -r "$JQ_QUERY" | tr -d '"')
+	) &
+	PIDS="$PIDS $!"
+	echo $PIDS
 }
 
 fn_install=$(
@@ -379,14 +670,18 @@ BASH_FUNC___dl_github_asset%%=() {
 	JQ_CMD='[.assets[] | { asset:.name, url:.browser_download_url }]'
 	ASSETS="$( curl -sSL "$FQDN$URI" | "$JQ" "$JQ_CMD" )"
 
-	JQ_CMD=$( printf '.[] | select( .asset | test("%s")).url' "$RE" )
+	if [ $VERBOSE ]; then
+		printf "Assets found for %s:\n\n%s\n" "$NAME" "$ASSETS"
+	fi
+
+	JQ_CMD=$( printf '.[] | select( .asset | test("%s"; "i")).url' "$RE" )
 	ASSET_URL=$( echo "$ASSETS" | "$JQ" -r "$JQ_CMD" )
 
 	# if asset not found, search search using compatible architectures
 	if [ -z "$ASSET_URL" ]; then
-		case "$(uname -m)" in
+		case "$ARCH" in
 			*amd64*)
-				ALT_RE_1="${RE//amd64/[xX]86_64}" ;;
+				ALT_RE_1="${RE//amd64/x86_64}" ;;
 			*x86_64*)
 				ALT_RE_1="${RE//x86_64/(amd64|AMD64)}" ;;
 			aarch64)
@@ -398,43 +693,82 @@ BASH_FUNC___dl_github_asset%%=() {
 			armv8l)
 				ALT_RE_1="${RE//armv8b/(aarch64|AARCH64|arm64|ARM64)}" ;;
 			*i386*)
-				ALT_RE_1="${RE//i386/i686}" ;;
+				ALT_RE_1="${RE//i386/(i?386|i?686)}" ;;
 			*i586*)
-				ALT_RE_1="${RE//i386/(i386|i686)}" ;;
+				ALT_RE_1="${RE//i586/(i?386|i?686)}" ;;
 			*i686*)
-				ALT_RE_1="${RE//i386/i386}" ;;
+				ALT_RE_1="${RE//i686/(i?386|i?686)}" ;;
 			*)
-				err "Machine architecture $(uname -m) not currently supported by provii." \
+				err "Machine architecture $ARCH not currently supported by provii." \
 					"Failed to download binary for $NAME." ;;
 		esac
 
-		JQ_CMD=$( printf '.[] | select( .asset | test("%s")).url' "$ALT_RE_1" )
+		if [ $VERBOSE ]; then
+			echo "Searching assets using architectures compatible with $ARCH" \
+				"because using default value for ARCH, $ARCH, yeilded nothing." \
+				"\nUsing the following regular expression: $ALT_RE_1." 
+		fi
+		JQ_CMD=$( printf '.[] | select( .asset | test("%s"; "i")).url' "$ALT_RE_1" )
 		ASSET_URL=$( echo "$ASSETS" | "$JQ" -r "$JQ_CMD" )
 	fi
 	
 	# if asset not found, search using memory addressing scheme (32/64) for architecture
 	if [ -z "$ASSET_URL" ]; then
-		case "$(uname -m | tr "[:upper:]" "[:lower:]")" in
-			amd64 | x86_64 | aarch64 | aarch64_be | armv8b | armv8l)
-				ALT_RE_2="${RE//amd64/(64bit|64BIT|64|[xX]?64)}" ;;
-			i386 | i586 | i686)
-				ALT_RE_2="${RE//i386/(32bit|32BIT|32|[xX]86[^_])}" ;;
+		re64='x?64(bit)?'
+		re32='32(bit)?|x86[^_]'
+		case "$ARCH" in
+			amd64)
+				ALT_RE_2="${RE//amd64/"$re64"}" ;;
+			*x86_64*)
+				ALT_RE_2="${RE//x86_64/"$re64"}" ;;
+			aarch64)
+				ALT_RE_2="${RE//aarch64/"$re64"}" ;;
+			aarch64_be)
+				ALT_RE_2="${RE//aarch64_be/"$re64"}" ;;
+			armv8b)
+				ALT_RE_2="${RE//armv8b/"$re64"}" ;;
+			armv8l)
+				ALT_RE_2="${RE//armv8l/"$re64"}" ;;
+			*i386*)
+				ALT_RE_2="${RE//i386/"$re32"}" ;;
+			*i586*)
+				ALT_RE_2="${RE//i586/"$re32"}" ;;
+			*i686*)
+				ALT_RE_2="${RE//i686/"$re32"}" ;;
 			*)
-				err "Machine architecture $(uname -m) not currently supported by provii." \
+				err "Machine architecture $ARCH not currently supported by provii." \
 					"Failed to download binary for $NAME." ;;
 		esac
 
-		JQ_CMD=$( printf '.[] | select( .asset | test("%s")).url' "$ALT_RE_2" )
+		if [ $VERBOSE ]; then
+			echo "Searching assets using 64bit or 32bit based on value for ARCH, $ARCH," \
+				"because searching assets using comptabile architecture names, $ALT_RE_1 failed." \
+				"\nUsing the following regular expression: $ALT_RE_2." 
+		fi
+
+		JQ_CMD=$( printf '.[] | select( .asset | test("%s"; "i")).url' "$ALT_RE_2" )
 		ASSET_URL=$( echo "$ASSETS" | "$JQ" -r "$JQ_CMD" )
 	fi
 
 	# if asset not found, all options have been exhausted at this point
 	if [ -z "$ASSET_URL" ]; then
-		SUBMSG=$( printf 'No Github asset found for %s that matches: %s' \
-			"$1" "${CYAN}$RE${STYLE_RESET}" )
-		ASSET_NAMES="$( echo "$ASSETS" | "$JQ" -r '.[].asset_name' )"
-		MSG="$( printf '%s\nAssets found for %s:\n\n%s' \
-			"$SUBMSG" "${CYAN}$1${STYLE_RESET}" "$ASSET_NAMES" )"
+		RESPONSE_1A="No Github asset found for $REPO that matches the following regular expressions:"
+		RESPONSE_1B="$( printf '\n\t\t%s' \
+			"${CYAN}$RE${STYLE_RESET}" \
+			"${ALT_RE_1:+${CYAN}$ALT_RE_1${STYLE_RESET}}" \
+			"${ALT_RE_2:+${CYAN}$ALT_RE_2${STYLE_RESET}}" \
+			)"
+		RESPONSE_2A="$(printf '%s%s' \
+			"$_ERROR_SPACER" \
+			"The following assets were found for repository $REPO:" \
+			)"
+		RESPONSE_2B="$( printf '\n\t\t%s' \
+			$(echo "$ASSETS" | "$JQ" -r '.[].asset' ) \
+			)"
+		MSG="$( printf '%s\n%s\n\n%s\n%s' \
+			"$RESPONSE_1A" "$RESPONSE_1B" \
+			"$RESPONSE_2A" "$RESPONSE_2B" \
+			)"
 		err "$MSG"
 	fi
 
@@ -443,7 +777,7 @@ BASH_FUNC___dl_github_asset%%=() {
 			'Regular expression %s matched more than one Github asset.' \
 			"${CYAN}${RE}${STYLE_RESET}" )
 
-		JQ_CMD=$( printf '.[] | select( .asset | test("%s")).asset' "$RE" )
+		JQ_CMD=$( printf '.[] | select( .asset | test("%s"; "i")).asset' "$RE" )
 		ASSET_NAMES=$( echo "$ASSETS" | "$JQ" -r "$JQ_CMD" )
 
 		MSG="$( printf '%s Assets matched:\n\n%s\n' "$SUBMSG" "$ASSET_NAMES" )"
@@ -549,8 +883,10 @@ warn() {
 	echo "warn:" "$@"
 }
 
+export _ERROR_PREFIX='Error: '
+export _ERROR_SPACER="$(printf '%*s' "$(echo -n "$_ERROR_PREFIX" | wc -c)")"
 err() {
-	echo "err:" "$@"
+	printf "\n%s%s" "${_STYLE_ERROR}$_ERROR_PREFIX${STYLE_RESET}" "$@"
 	exit 1
 }
 
@@ -578,7 +914,7 @@ EOF
 fn_err="$(
 	cat <<'EOF'
 BASH_FUNC_err%%=() {
-	printf '\n%s: %s' "${MAGENTA}Error${STYLE_RESET}" "$@"
+	printf "\n%s%s" "${_STYLE_ERROR}$_ERROR_PREFIX${STYLE_RESET}" "$@"
 	exit 1
 }
 EOF
@@ -587,85 +923,78 @@ EOF
 PRINT_VARIABLES="$(
 	cat <<-'EOF'
 		env \
-			| grep "^\(OS\|SCOPE\|LIBC\|BASH_COMP\|ZSH_COMP\|MAN\|NAME\|CACHE\|CFG\|ARCH\|BIN\|SYSD\|LOG\)=" \
-			| awk -v ul="$UNDERLINE" -v mg="${MAGENTA}" -v no_style="$STYLE_RESET" '
+			| grep "^\(OS\|SCOPE\|LIBC\|BASH_COMP\|ZSH_COMP\|MAN\|NAME\|CACHE\|CFG\|ARCH\|BIN\|LOG\)=" \
+			| awk -v style_hdr="$_STYLE_HEADER" -v style_vars="$_STYLE_VARS" -v no_style="$STYLE_RESET" '
 				BEGIN {
 					FS="="
 				}{
 					vars[$1] = $2
 				}
 				END {
-					fmt="%s%-10s%s %s\n"
+					fmt_hdr=sprintf("\n%s%%s%%*s%s\n\n", style_hdr,  no_style)
+
+					max_width_1 = 0
+					max_width_2 = 0
+					for (i in vars) {
+						width_1 = length(i)
+						if ( width_1 > max_width_1 ) max_width_1 = width_1
+						width_2 = length(vars[i])
+						if ( width_2 > max_width_2 ) max_width_2 = width_2 
+					}
 
 					if ("NAME" in vars) context=vars["NAME"]
 					else context="GLOBAL"
-					printf "\n%sprovii: %s%s\n", ul, context, no_style
 
-					general_keys = "NAME OS ARCH LIBC"
-					dirs_keys     = "BIN MAN BASH_COMP ZSH_COMP SYSD"
-					meta_keys     = "SCOPE CACHE LOG"
+					max_line_width = max_width_1 + max_width_2 + 2
+					padding = max_line_width - length(context)
+					printf fmt_hdr, context, padding, "[environment]"
 
-					printf "\n"
-					split(general_keys, general, " ")
-					for (i in general) {
-						var=general[i]
-						if (var in vars) printf fmt, mg, var, no_style, vars[var]
+					fmt=sprintf("%s%%-%is%s %%s\n", style_vars, max_width_1, no_style)
+
+					keys[1] = "NAME SCOPE"
+					keys[2] = "OS ARCH LIBC"
+					keys[3] = "BIN MAN BASH_COMP ZSH_COMP SYSD"
+					keys[4] = "CACHE LOG"
+
+					for (i in keys) {
+						printf "\n"
+						split(keys[i], keys_list, " ")
+						for (i in keys_list) {
+							var=keys_list[i]
+							if (var in vars) printf fmt, var, vars[var]
+						}
 					}
-
 					printf "\n"
-					split(meta_keys, meta, " ")
-					for (i in meta) {
-						var=meta[i]
-						if (var in vars) printf fmt, mg, var, no_style, vars[var]
-					}
-
-					printf "\n"
-					split(dirs_keys, dirs, " ")
-					for (i in dirs) {
-						var=dirs[i]
-						if (var in vars) printf fmt, mg, var, no_style, vars[var]
-					}
-
 				}'
 	EOF
 )"
 
 run_installer() {
-	PROVIIRC="${XDG_CONFIG_HOME-$HOME/.config}/proviirc"
-	[ -f "$PROVIIRC" ] && . "$PROVIIRC"
+	# these 3 functions must be executed in this order
+	source_proviirc
+	set_provii_log
+	set_provii_cache
 
-	USER_CACHE="${XDG_CACHE_HOME-$HOME/.cache}"
-	[ -d "$USER_CACHE" ] && [ -w "$USER_CACHE" ] &&
-		PROVII_CACHE="$USER_CACHE/provii" ||
-		PROVII_CACHE=/tmp/provii
+	set_provii_libc
+	set_provii_arch
+	set_provii_os
+	set_provii_scope
 
-	# create_dir will fail unless $PROVII_LOG is defined first
-	PROVII_LOG=${PROVII_LOG:-$PROVII_CACHE/run.log}
-	[ ! "$SUMMARIZE" ] && create_dir "$PROVII_CACHE"
+	set_provii_bin
+	set_provii_data
+	set_provii_man
+	set_provii_bash_comp
+	set_provii_zsh_comp
 
-	case "$(ldd --version 2>&1 | head -1 | tr "[:upper:]" "[:lower:]")" in
-	*musl*) PROVII_LIBC=musl ;;
-	*gnu* | *glibc*) PROVII_LIBC=gnu ;;
-	esac
-
-	# see, https://en.wikipedia.org/wiki/Uname#Examples
-	PROVII_SYSTEM="${PROVII_SYSTEM:-"$(uname -s | tr "[:upper:]" "[:lower:]")"}"
-	PROVII_ARCH="${PROVII_ARCH:-"$(uname -m | tr "[:upper:]" "[:lower:]")"}"
-
-	[ "$(id -u)" -eq "0" ] &&
-		PROVII_SCOPE=system ||
-		PROVII_SCOPE=user
-
-	set_pv_bin
-	set_pv_data
-	set_pv_man
-	set_pv_bash_comp
-	set_pv_zsh_comp
+	if [ "$SUMMARIZE" ]; then
+		INSTALLATION_SCRIPT="$PRINT_VARIABLES"
+	else
+		INSTALLATION_SCRIPT="$(get_installer)"
+		export INSTALLATION_SCRIPT
+	fi
 
 	if [ ! "$SUMMARIZE" ]; then
-		# format this to look nice and tabbed out with awks printf
-		echo "${MAGENTA}binary:${STYLE_RESET} $INSTALLER"
-		echo "${MAGENTA}destination:${STYLE_RESET} $PROVII_BIN"
+		show_installer_targets "$INSTALLER"
 	fi
 
 	if [ "$INSTALLER" ]; then
@@ -673,19 +1002,6 @@ run_installer() {
 		create_dir "$PROVII_TEMP" || exit 1
 		rm -rf "${PROVII_TEMP:?}"/*
 	fi
-
-	case *:$PATH:* in
-	*:$PROVII_BIN:*) ;;
-
-	*)
-		[ -z "$SUDO_USER" ] && warn "$PROVII_BIN" temporarily added \
-			to PATH, manually add it to your shell configuration
-		;;
-	esac
-
-	[ ! "$SUMMARIZE" ] &&
-		SCRIPTLET="$(get_installer)" ||
-		SCRIPTLET="$PRINT_VARIABLES"
 
 	/usr/bin/env -C "${PROVII_TEMP:-$PROVII_CACHE}" - \
 		${INSTALLER:+NAME="$INSTALLER"} \
@@ -698,14 +1014,19 @@ run_installer() {
 		${PROVII_LOG:+LOG="$PROVII_LOG"} \
 		${PROVII_LIBC:+LIBC="$PROVII_LIBC"} \
 		${PROVII_ARCH:+ARCH="$PROVII_ARCH"} \
-		${PROVII_SYSTEM:+OS="$PROVII_SYSTEM"} \
+		${PROVII_OS:+OS="$PROVII_OS"} \
 		${UNDERLINE:+UNDERLINE="$UNDERLINE"} \
 		${NO_UNDERLINE:+NO_UNDERLINE="$NO_UNDERLINE"} \
 		${MAGENTA:+MAGENTA="$MAGENTA"} \
+		${_STYLE_ERROR:+_STYLE_ERROR="$MAGENTA"} \
 		${CYAN:+CYAN="$CYAN"} \
 		${STYLE_RESET:+STYLE_RESET="$STYLE_RESET"} \
 		${PS4:+PS4="$(tput ht)$(tput ht)$(tput setaf 6)$INSTALLER $LINENO :: $(tput sgr 0)"} \
 		${VERBOSE:+VERBOSE="$VERBOSE"} \
+		_ERROR_PREFIX="$_ERROR_PREFIX" \
+		_ERROR_SPACER="$_ERROR_SPACER" \
+		_STYLE_VARS="$_STYLE_VARS" \
+		_STYLE_HEADER="$_STYLE_HEADER" \
 		"$fn_github" \
 		"$fn___dl_github_asset" \
 		"$fn___dl_github_file__" \
@@ -714,7 +1035,7 @@ run_installer() {
 		"$fn_log" \
 		"$fn_warn" \
 		"$fn_err" \
-		bash ${DEBUG+-x} -e -c "$SCRIPTLET"
+		bash ${DEBUG+-x} -e -c "$INSTALLATION_SCRIPT"
 }
 
 if command -v jq >/dev/null 2>&1; then
@@ -725,71 +1046,79 @@ fi
 
 if [ "$(basename "$0")" != 'provii' ]; then
 	run_installer "$(basename "$0")"
-else
-	subcommand="$1" && shift
-	case "$subcommand" in
-	install)
-		case "$1" in
-		-h | --help | help) print_usage 'install' ;;
-		esac
-		for APP in $*; do
-			INSTALLER="$APP" run_installer
-		done
-		;;
-	ls)
-		case "$1" in
-		-h | --help | help) print_usage 'ls' ;;
-		esac
-		ls_installers
-		;;
-	env)
-		case "$1" in
-		-h | --help | help) print_usage 'env' ;;
-		esac
-		SUMMARIZE=1
-		if [ $# -gt 0 ]; then
-			for APP in $*; do
-				INSTALLER="$APP" run_installer
-			done
-		else
-			run_installer
-		fi
-		;;
-	cat)
-		case "$1" in
-		-h | --help | help)
-			print_usage 'cat'
-			;;
-		-b | --branch)
-			shift
-
-			if [ -n "$1" ]; then
-				PROVII_BRANCH="$1"
-			else
-				print_usage 'cat'
-			fi
-			if [ -n "$2" ]; then
-				INSTALLER="$2"
-			else
-				print_usage 'cat'
-			fi
-			;;
-		*)
-			if [ -n "$1" ]; then
-				INSTALLER="$1"
-			else
-				print_usage 'cat'
-			fi
-			;;
-		esac
-		if command -v bat >/dev/null 2>&1; then
-			get_installer | bat -p --language="bash"
-		else
-			get_installer
-		fi
-		;;
-	-h | --help | help)
-		print_usage "$1"
-		;;
-	esac
+	exit
 fi
+
+cmd="$1"
+shift
+case "$cmd" in
+install)
+	while :; do
+		case "$1" in
+		-v) VERBOSE=1 ;;
+		-i) INTERACTIVE=1 ;;
+		-h) print_usage 'install' ;;
+		-b)
+			shift
+			PROVII_BRANCH="$1"
+			;;
+		--)
+			shift
+			break
+			;;
+		-*) usage_error 'install' "bad argument $1" ;;
+		*) break ;;
+		esac
+		shift
+	done
+	for APP in $*; do
+		INSTALLER="$APP" run_installer
+	done
+	;;
+ls)
+	while :; do
+		case "$1" in
+		-h) print_usage 'ls' ;;
+		-*) usage_error 'ls' "bad argument $1" ;;
+		*) break ;;
+		esac
+		shift
+	done
+	ls_installers &
+	PIDS="$PIDS $!"
+	echo $PIDS
+	;;
+env)
+	while :; do
+		case "$1" in
+		-h) print_usage 'env' ;;
+		-*) usage_error 'env' "bad argument $1" ;;
+		*) break ;;
+		esac
+		shift
+	done
+	SUMMARIZE=1
+	[ -n "$1" ] && INSTALLER="$1"
+	run_installer
+	;;
+cat)
+	while :; do
+		case "$1" in
+		-h) print_usage 'cat' ;;
+		-b)
+			shift
+			PROVII_BRANCH="$1"
+			;;
+		-*) usage_error 'cat' "bad argument $1" ;;
+		*) break ;;
+		esac
+		shift
+	done
+	INSTALLER="$1"
+	if has_cmd bat; then
+		get_installer | bat --style=grid,numbers --language="bash"
+	else
+		get_installer
+	fi
+	;;
+esac

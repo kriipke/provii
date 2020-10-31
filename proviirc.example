@@ -1,6 +1,10 @@
-# Sample ~/.config/proviirc with default values
-# variables without values have values that are dynamically determined at runtime,
+# Sample proviirc with default values
+# variables without values have values that are dynamically determined at runtime
 # unless they are explicitly defined in the proviirc, in which case that value is used
+#
+# This file should be located at either:
+# 	1. $XDG_CONFIG_HOME/proviirc
+# 	2. ~/.config/proviirc
 
 PROVII_CACHE=~/.cache/provii
 PROVII_LOG=$PROVII_CACHE/run.log
