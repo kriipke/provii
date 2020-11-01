@@ -1,14 +1,29 @@
-#!/bin/bash -e
+#!/bin/bash -eE
+
+cleanup() {
+	if [ "$RESET_TABS" ]; then
+		tabs -0
+	fi
+	if [ "$CLEAN_CACHE" ]; then
+		${PROVII_CACHE:+rm -rf $PROVII_CACHE}
+	fi
+}
 
 if command -v tabs >/dev/null 2>&1; then
-	tabs -4
-	trap "tabs -0" EXIT
+	tabs -4 && RESET_TABS=1
+	trap 'cleanup' EXIT
 fi
+
+CLEAN_CACHE=1
+
+unset CLEAN_CACHE
+# DEBUG=1
 
 if [ "$DEBUG" ]; then
 	set -x
 	VERBOSE=1
-	PS4='${TAB}${MAGENTA} $LINENO ::${STYLE_RESET} '
+	unset CLEAN_CACHE
+	PS4='${TAB}${MAGENTA}provii $LINENO ::${STYLE_RESET} '
 fi
 
 PROVII_BRANCH="arch_regex"
@@ -141,7 +156,8 @@ create_dir() {
 		if [ ! -d "$dir" ] && [ -w "$(dirname "$dir")" ]; then
 			mkdir -p "$dir"
 			if [ "$?" -eq 0 ]; then
-				log --created "$dir"
+				# log --created "$dir"
+				true
 			else
 				warn Failed to create "$dir"
 				return 1
@@ -207,14 +223,19 @@ set_provii_cache() {
 	CACHE_DEFAULT="${XDG_CACHE_HOME-$HOME/.cache}/provii"
 
 	if [ -n "$PROVII_CACHE" ]; then
-		if [ ! -w "$PROVII_CACHE" ]; then
-			err 'The value provided for $PROVII_CACHE either does' \
-				'note exist or is not writable, please fix.'
-		fi
+		MSG='The value provided for $PROVII_CACHE either does' \
+			'note exist or is not writable, please fix.'
+		[ ! -w "$PROVII_CACHE" ] && err "$MSG"
+	else
+		PROVII_CACHE="$CACHE_DEFAULT"
 	fi
 
-	PROVII_CACHE="$CACHE_DEFAULT"
-	create_dir "$PROVII_CACHE"
+	INSTALLER_CACHE="$PROVII_CACHE${INSTALLER:+/$INSTALLER}"
+
+	if [ ! "$DRY_RUN" ]; then
+		[ -d "$INSTALLER_CACHE" ] && rm -rf "$INSTALLER_CACHE"
+		create_dir "$INSTALLER_CACHE"
+	fi
 }
 
 set_provii_bin() {
@@ -508,7 +529,6 @@ get_installer_vars() {
 }
 
 show_installer_targets() {
-	INSTALLER="$1"
 	_INSTALLER_VARS="$(get_installer_vars "$INSTALLER")"
 
 	target_exe="$(printf "EXECUTABLE\t%s/%s\n" "$PROVII_BIN" "$INSTALLER")"
@@ -629,7 +649,6 @@ BASH_FUNC_install%%=() {
 
 		*/x-*)
 			command install "$1" "$BIN/" \
-				&& log --created "$BIN/$1"
 			;;
 		*)
 			err "Could not install $1"
@@ -871,12 +890,26 @@ EOF
 )
 
 log() {
-	FMT='+%Y-%m-%d %T'
-	if [ "$1" == '--created' ]; then
-		shift && printf '%s %s %s\n' "$(date "$FMT")" created_file "$@" >>"$PROVII_LOG"
-	else
-		printf '%s %s %s' "$(date "$FMT")" info "$@" >>"$PROVII_LOG"
-	fi
+	true
+	# awk \
+	# 	-v date="$1" \
+	# 	-v time="$2" \
+	# 	-v file="$3" \
+	# 	'BEGIN{ entry_found = 0; }
+	# 		{
+	# 			if ($3 == file) {
+	# 				$1 = date
+	# 				$2 = time
+	# 				entry_found= 1
+	# 			}
+	# 			print
+	# 		}
+	# 		END{
+	# 			if (entry_found == 0)
+	# 				printf "%s\t%s\t%s\n",date,time,file
+	# 		}' \
+	# 	"$PROVII_LOG" >"$PROVII_LOG.new" &&
+	# 	cp "$PROVII_LOG.new" "$PROVII_LOG"
 }
 
 warn() {
@@ -895,7 +928,8 @@ fn_log="$(
 BASH_FUNC_log%%=() {
 	FMT='+%Y-%m-%d %T'
 	if [ $1 == '--created' ]; then
-		shift && printf '%s %s %s\n' "$(date "$FMT")" created_file "$@" >> $LOG
+		# shift && printf '%s %s %s\n' "$(date "$FMT")" created_file "$@" >> $LOG
+		true
 	else
 		printf '%s %s %s' "$(date "$FMT")" info "$@" >> $LOG
 	fi
@@ -969,6 +1003,23 @@ PRINT_VARIABLES="$(
 	EOF
 )"
 
+gather_facts() {
+	source_proviirc
+	set_provii_log
+	set_provii_cache
+
+	set_provii_libc
+	set_provii_arch
+	set_provii_os
+	set_provii_scope
+
+	set_provii_bin
+	set_provii_data
+	set_provii_man
+	set_provii_bash_comp
+	set_provii_zsh_comp
+}
+
 run_installer() {
 	# these 3 functions must be executed in this order
 	source_proviirc
@@ -994,23 +1045,17 @@ run_installer() {
 	fi
 
 	if [ ! "$SUMMARIZE" ]; then
-		show_installer_targets "$INSTALLER"
+		show_installer_targets
 	fi
 
-	if [ "$INSTALLER" ]; then
-		PROVII_TEMP="$PROVII_CACHE/$INSTALLER"
-		create_dir "$PROVII_TEMP" || exit 1
-		rm -rf "${PROVII_TEMP:?}"/*
-	fi
-
-	/usr/bin/env -C "${PROVII_TEMP:-$PROVII_CACHE}" - \
+	/usr/bin/env -C "$PROVII_CACHE${INSTALLER:+/$INSTALLER}" - \
 		${INSTALLER:+NAME="$INSTALLER"} \
 		SCOPE="$PROVII_SCOPE" \
 		BIN="$PROVII_BIN" \
+		$CACHE="$PROVII_CACHE${INSTALLER:+/$INSTALLER}" \
 		${PROVII_MAN:+MAN="$PROVII_MAN"} \
 		${PROVII_BASH_COMP:+BASH_COMP="$PROVII_BASH_COMP"} \
 		${PROVII_ZSH_COMP:+ZSH_COMP="$PROVII_ZSH_COMP"} \
-		${PROVII_CACHE:+CACHE="${PROVII_TEMP:-$PROVII_CACHE}"} \
 		${PROVII_LOG:+LOG="$PROVII_LOG"} \
 		${PROVII_LIBC:+LIBC="$PROVII_LIBC"} \
 		${PROVII_ARCH:+ARCH="$PROVII_ARCH"} \
@@ -1021,7 +1066,7 @@ run_installer() {
 		${_STYLE_ERROR:+_STYLE_ERROR="$MAGENTA"} \
 		${CYAN:+CYAN="$CYAN"} \
 		${STYLE_RESET:+STYLE_RESET="$STYLE_RESET"} \
-		${PS4:+PS4="$(tput ht)$(tput ht)$(tput setaf 6)$INSTALLER $LINENO :: $(tput sgr 0)"} \
+		${PS4:+PS4="$(tput ht)$(tput ht)$(tput setaf 6)$INSTALLER "'$LINENO $FUNCNAME'" :: $(tput sgr 0)"} \
 		${VERBOSE:+VERBOSE="$VERBOSE"} \
 		_ERROR_PREFIX="$_ERROR_PREFIX" \
 		_ERROR_SPACER="$_ERROR_SPACER" \
@@ -1035,7 +1080,36 @@ run_installer() {
 		"$fn_log" \
 		"$fn_warn" \
 		"$fn_err" \
-		bash ${DEBUG+-x} -e -c "$INSTALLATION_SCRIPT"
+		bash ${DEBUG+-x} -eE -c "$INSTALLATION_SCRIPT" &
+
+	PID=$!
+	STRACE_RE='^.*(([[:digit:]]{2}:?){3}).*[[:digit:]]<(.*)>'
+	DATE="$(date --iso-8601)"
+	TEMP_LOG="$(mktemp -p $PROVII_CACHE)"
+
+	strace -p "$PID" -fytze trace=open,creat,openat $* 2>&1 |
+		grep -E 'O_CREAT|O_TRUNC' |
+		grep -v 'O_APPEND' |
+		grep -Ev "/tmp/|/dev/null|$PROVII_CACHE" |
+		sed -En "s/$STRACE_RE/$DATE\t\1\t$INSTALLER\t\3/p" >"$TEMP_LOG"
+
+	wait "$PID"
+	awk '
+		NR==FNR{
+			check[$4]=$0; next
+		}
+		{
+			if ($4 in check) {
+				print check[$4]
+				delete check[$4]
+			}
+			else {print}
+		}
+		END{
+			for (i in check) print check[i]
+		}' \
+		"$TEMP_LOG" "$PROVII_LOG" >"$PROVII_LOG.new"
+	mv "$PROVII_LOG.new" "$PROVII_LOG"
 }
 
 if command -v jq >/dev/null 2>&1; then
@@ -1071,7 +1145,7 @@ install)
 		esac
 		shift
 	done
-	for APP in $*; do
+	for APP in "$@"; do
 		INSTALLER="$APP" run_installer
 	done
 	;;
@@ -1084,9 +1158,7 @@ ls)
 		esac
 		shift
 	done
-	ls_installers &
-	PIDS="$PIDS $!"
-	echo $PIDS
+	ls_installers
 	;;
 env)
 	while :; do
