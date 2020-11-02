@@ -36,11 +36,12 @@ if command -v tput >/dev/null 2>&1; then
 		NO_UNDERLINE="$(tput rmul 2>/dev/null || echo '')"
 		STYLE_RESET="$(tput sgr0 2>/dev/null || echo '')"
 	fi
-	_STYLE_ERROR="$MAGENTA"
-	_STYLE_ECHO="$MAGENTA"
-	_STYLE_VARS="$MAGENTA"
-	_STYLE_HEADER="${UNDERLINE}${CYAN}"
-	_STYLE_INFO="$RED"
+	STYLE_ERROR="$MAGENTA"
+	STYLE_ECHO="$MAGENTA"
+	STYLE_VARS="$MAGENTA"
+	STYLE_FILES="$CYAN"
+	STYLE_HEADER="${UNDERLINE}${CYAN}"
+	STYLE_INFO="$RED"
 fi
 
 _help='
@@ -59,7 +60,7 @@ OPTIONS:
 -v, --verbose       prints various information depending on subcommand'
 
 usage_error() {
-	echo $(basename "$0"): ERROR: "$2" 1>&2
+	echo "$(basename "$0")": ERROR: "$2" 1>&2
 	print_usage "$1" 1>&2
 	exit 1
 }
@@ -136,7 +137,7 @@ source_proviirc() {
 		PROVIIRC="${XDG_CONFIG_HOME-$HOME/.config}/proviirc"
 
 		printf '%sINFO%s sourcing %s\n' \
-			"${_STYLE_INFO}" \
+			"${STYLE_INFO}" \
 			"${STYLE_RESET}" \
 			"${CYAN}$PROVIIRC${STYLE_RESET}"
 
@@ -251,6 +252,38 @@ has_package() {
 		return 0
 	else
 		return 1
+	fi
+}
+
+rm_app() {
+	set_provii_log
+	RM_FILES="$(awk -v app="${1:?}" '$3 == app { print $4 }' "$PROVII_LOG")"
+	if [ -n "$RM_FILES" ]; then
+		if [ "$INTERACTIVE" ]; then
+			printf "\nThe following files associated with %s were found:\n" "$1"
+			printf '%s' "$CYAN"
+			printf '\t%s\n' "$CYAN" $RM_FILES "$STYLE_RESET"
+			printf '%s' "$STYLE_RESET"
+			read -p "Delete all files associated with $1? [Y|n] " RESPONSE
+			case "$RESPONSE" in
+			N* | n*)
+				echo "Exiting without removing $1."
+				exit
+				;;
+			esac
+		fi
+
+		awk -v app="$1" '{
+		if ( $3 == app )
+			system("rm " $4)
+		else
+			print
+		}' "$PROVII_LOG" >"$PROVII_LOG.new"
+		mv "$PROVII_LOG.new" "$PROVII_LOG"
+
+	else
+		echo "No files for $1 listed in $PROVII_LOG, exiting without removing anything"
+		exit 1
 	fi
 }
 
@@ -536,13 +569,13 @@ show_installer_targets() {
 
 	header_fmt="$(
 		printf '\n%s%%-%is\n\n%s'
-		"${_STYLE_HEADER}" "$_TABLE_WIDTH" "${STYLE_RESET}"
+		"${STYLE_HEADER}" "$_TABLE_WIDTH" "${STYLE_RESET}"
 	)"
 	printf "$header_fmt" "$INSTALLER"
 
 	echo "$target_dirs" | awk \
 		-v col1_width="$_COL1_WIDTH" \
-		-v style1="$_STYLE_ECHO" \
+		-v style1="$STYLE_ECHO" \
 		-v nostyle="$STYLE_RESET" \
 		'BEGIN{ 
 		FS="\t"; RS="\n"; 
@@ -856,7 +889,7 @@ _ERROR_PREFIX='Error: '
 _ERROR_SPACER="$(printf '%*s' "$(echo -n "$_ERROR_PREFIX" | wc -c)")"
 export _ERROR_PREFIX _ERROR_SPACER
 err() {
-	printf "\n%s%s" "${_STYLE_ERROR}$_ERROR_PREFIX${STYLE_RESET}" "$@"
+	printf "\n%s%s" "${STYLE_ERROR}$_ERROR_PREFIX${STYLE_RESET}" "$@"
 	exit 1
 }
 
@@ -885,7 +918,7 @@ EOF
 fn_err="$(
 	cat <<'EOF'
 BASH_FUNC_err%%=() {
-printf "\n%s%s" "${_STYLE_ERROR}$_ERROR_PREFIX${STYLE_RESET}" "$@"
+printf "\n%s%s" "${STYLE_ERROR}$_ERROR_PREFIX${STYLE_RESET}" "$@"
 exit 1
 }
 EOF
@@ -895,8 +928,8 @@ PRINT_VARIABLES="$(
 	cat <<'EOF'
 set | grep -e ^NAME -e ^SCOPE -e ^OS -e ^ARCH -e ^LIBC \
 			-e ^BIN -e ^MAN -e ^BASH_COMP -e ^ZSH_COMP -e ^CACHE -e ^LOG | awk \
-			-v style_hdr=$_STYLE_HEADER \
-			-v style_vars=$_STYLE_VARS \
+			-v style_hdr=$STYLE_HEADER \
+			-v style_vars=$STYLE_VARS \
 			-v no_style=$STYLE_RESET \
 			'
 			BEGIN {
@@ -976,15 +1009,15 @@ run_installer() {
 		${UNDERLINE:+UNDERLINE="$UNDERLINE"} \
 		${NO_UNDERLINE:+NO_UNDERLINE="$NO_UNDERLINE"} \
 		${MAGENTA:+MAGENTA="$MAGENTA"} \
-		${_STYLE_ERROR:+_STYLE_ERROR="$MAGENTA"} \
+		${STYLE_ERROR:+STYLE_ERROR="$MAGENTA"} \
 		${CYAN:+CYAN="$CYAN"} \
 		${STYLE_RESET:+STYLE_RESET="$STYLE_RESET"} \
 		${PS4:+PS4="$(tput ht)$(tput ht)$(tput setaf 6)$INSTALLER "'$LINENO $FUNCNAME'" :: $(tput sgr 0)"} \
 		${VERBOSE:+VERBOSE="$VERBOSE"} \
 		_ERROR_PREFIX="$_ERROR_PREFIX" \
 		_ERROR_SPACER="$_ERROR_SPACER" \
-		_STYLE_VARS="$_STYLE_VARS" \
-		_STYLE_HEADER="$_STYLE_HEADER" \
+		STYLE_VARS="$STYLE_VARS" \
+		STYLE_HEADER="$STYLE_HEADER" \
 		"$fn_github" \
 		"$fn___dl_github_asset" \
 		"$fn___dl_github_file__" \
@@ -1110,6 +1143,42 @@ main() {
 		else
 			get_installer
 		fi
+		;;
+	rm)
+		while :; do
+			case "$1" in
+			-h) print_usage 'rm' ;;
+			-i) INTERACTIVE=1 ;;
+			-*) usage_error 'cat' "bad argument $1" ;;
+			*) break ;;
+			esac
+			shift
+		done
+		rm_app "$1"
+		;;
+	wipe)
+		APPS_INSTALLED="$(awk '{print $3}' ~/.provii.log | sort | uniq)"
+
+		printf "\n%sWARNING%s: ABOUT TO PERMENANTLY REMOVE ALL APPS. USE WITH CAUTION.\n" "$MAGENTA" "$STYLE_RESET"
+
+		printf '\n%s' "$STYLE_FILES"
+		tabs -8
+		echo "$APPS_INSTALLED" | column -c 80 -x
+		printf '%s' "$STYLE_RESET"
+
+		PROMPT="$(printf '\n%s %s ' 'Continue?' '[y|N]')"
+		read -p "$PROMPT" RESPONSE
+		case "$RESPONSE" in
+		Y* | y*)
+			for app in $APPS_INSTALLED; do
+				printf '\t%sRemoving:%s %s\n' "$STYLE_ECHO" "$STYLE_RESET" "$app"
+			done
+			;;
+		*)
+			echo "Exiting without removing any files."
+			exit
+			;;
+		esac
 		;;
 	esac
 }
