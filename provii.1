@@ -1,0 +1,118 @@
+.\" Manpage for provii.
+.\" Contact l0xy@protonmail.com to correct errors or typos.
+.TH PROVII 1 "2020\-11-01" provii "provii manual"
+
+.SH NAME
+provii  \- minimalist command-line utility installer & provisioning tool
+
+.SH SYNOPSIS
+provii install [-vi] \fIAPPLICATION\fR ...
+.br
+provii env [\fIAPPLICATION\fR]
+.br
+provii cat \fIAPPLICATION\fR
+.br
+provii ls
+
+.SH DESCRIPTION
+\fBprovii\fR is a provisioning tool to painlessly download your favorite command-line utilities as pre-compiled binaries on a machine that that may be missing them. It is a convenient alternative when you do not have the premissions required to install software using the systems package manager or when you do not wish to install the software system-wide.
+
+.SH STANDARD OPTIONS
+
+.TP
+.B \-b\fR
+Choose the git branch that provii uses to fetch	installer information.
+
+.TP
+.B \-i\fR
+Ask user for confirm before any changes to the system before they are made.
+
+.TP
+.B \-v\fR
+Print extra information to standard out during runtime.
+
+.TP
+.B \-h\fR
+Print help menu.
+
+.SH PROVII COMMANDS
+
+.TP
+.B provii install\fR
+Install the application or applications given as arguments.
+
+.TP
+.B provii cat\fR
+Print the installation script that would be run by provii install \fR
+for a given application.
+
+.TP
+.B provii env\fR
+Show the values for variables that will populate the environment \fR
+in which the installation script for the given application is run.
+
+.TP
+.B provii ls\fR
+List all avaliable applications that can be installed with provii.
+
+.SH ENVIRONMENT VARIABLES
+.TP
+.B PROVII_LOG
+Location of file to write logs of all files created during runtime.
+.TP
+.B PROVII_CACHE
+Path to directory used to store intermediatary files created during installation.
+Cleared at the end of every installation.
+.TP
+.B PROVII_SCOPE
+Can be set to either "system" or "user" - used to determine the path to use for
+the installation directories (unless they are given explicitly as environment
+variables or in the \fBproviirc\fR file).
+.TP
+.B PROVII_USER_BIN
+Installation path for all executables (when \fBPROVII_SCOPE=user\fR).
+.TP
+.B PROVII_USER_MAN
+Installation path for all MAN pages (when \fBPROVII_SCOPE=user\fR).
+.TP
+.B PROVII_USER_ZSH_COMP
+Installation path for all ZSH completions (when \fBPROVII_SCOPE=user\fR & \fBzsh\fR installed).
+.TP
+.B PROVII_USER_BASH_COMP
+Installation path for all BASH completions (when \fBPROVII_SCOPE=user\fR & \fBbash-completion\fR).
+.TP
+.B PROVII_SYSTEM_BIN
+Installation path for all executables (when \fBPROVII_SCOPE=system\fR).
+.TP
+.B PROVII_SYSTEM_MAN
+Installation path for all MAN pages (when \fBPROVII_SCOPE=system\fR).
+.TP
+.B PROVII_SYSTEM_ZSH_COMP
+Installation path for all ZSH completions (when \fBPROVII_SCOPE=system\fR & \fBzsh\fR installed).
+.TP
+.B PROVII_SYSTEM_BASH_COMP
+Installation path for all BASH completions (when \fBPROVII_SCOPE=system\fR & \fBbash-completion\fR installed).
+
+.SH FILES
+.TP
+.B Configuration
+.I $XDG_CONFIG_HOME/proviirc
+.br
+.I $HOME/.config/proviirc
+
+.TP
+.B Log\br
+.I $HOME/.provii.log
+
+.SH HOMEPAGE
+.I https://github.com/l0xy/provii
+.br
+.I https://l0xy.sh/code/provii
+
+.SH BUGS
+No known bugs. File an issue report:
+.br
+.I https://github.com/l0xy/provii/issues
+
+.SH AUTHOR
+Spencer Smolen (l0xy@protonmail.com)
