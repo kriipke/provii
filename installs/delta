@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+# style & format diff output for easy reading
+# https://github.com/dandavison/delta
+
+github dandavison/delta "$ARCH.*$OS.*($LIBC)?.*gz"
+tar -xf ./* --strip=1
+
+install delta

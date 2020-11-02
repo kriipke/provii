@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+# a tool for exploring each layer in a docker image 
+# https://github.com/wagoodman/dive
+
+github wagoodman/dive "$OS.*$ARCH.*gz"
+tar -xf ./*
+
+install dive

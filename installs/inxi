@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+# a full featured CLI system information reporting tool
+# https://github.com/smxi/inxi
+
+github smxi/inxi
+install inxi
+
+if [ "$MAN" ]; then
+	cp inxi.1 "$MAN/"
+fi

@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+# command-line benchmarking utility
+# https://github.com/sharkdp/hyperfine
+
+github sharkdp/bat "$ARCH.*$OS.*($LIBC)?.*gz"
+tar -xf ./* --strip=1
+
+install hyperfine
+
+if [ $MAN ]; then
+	cp hyperfine.1 $MAN/man1
+fi
+if [ $BASH_COMP ]; then
+	cp autocomplete/hyperfine.bash-completion $BASH_COMP/
+fi
+if [ $ZSH_COMP ]; then
+	cp autocomplete/_hyperfine $ZSH_COMP/
+fi
