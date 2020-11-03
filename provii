@@ -4,8 +4,8 @@ cleanup() {
 	if [ "$RESET_TABS" ]; then
 		tabs -8
 	fi
-	if [ "$CLEAN_CACHE" ]; then
-		${PROVII_CACHE:+rm -rf $PROVII_CACHE}
+	if [ "$CLEAN_CACHE" ] && [ "$PROVII_CACHE" ]; then
+		rm -rf $PROVII_CACHE || true
 	fi
 }
 
@@ -41,7 +41,7 @@ if command -v tput >/dev/null 2>&1; then
 	fi
 	STYLE_ERROR="$MAGENTA"
 	STYLE_ECHO="$MAGENTA"
-	STYLE_VARS="$MAGENTA"
+	STYLE_VAR="$MAGENTA"
 	STYLE_FILES="$CYAN"
 	STYLE_HEADER="${UNDERLINE}${CYAN}"
 	STYLE_INFO="$RED"
@@ -535,12 +535,13 @@ get_installer_vars() {
 show_installer_targets() {
 	_INSTALLER_VARS="$(get_installer_vars "$INSTALLER")"
 
-	target_exe="$(printf "EXECUTABLE\t%s/%s\n" "$PROVII_BIN" "$INSTALLER")"
+	target_exe="$(printf "%s,%s/%s\n" "$(style VAR "EXECUTABLE")" \
+		"$PROVII_BIN" "$INSTALLER")"
 
 	if [ "$PROVII_BASH_COMP" ]; then
 		if echo "$_INSTALLER_VARS" | grep -q '$BASH_COMP'; then
 			target_bash_comp="$(
-				printf "BASH COMPLETIONS\t%s/%s.bash-completion\n" \
+				printf "%s,%s/%s.bash-completion\n" "$(style VAR "BASH COMPLETIONS")" \
 					"$PROVII_BASH_COMP" "$INSTALLER"
 			)"
 		fi
@@ -548,7 +549,7 @@ show_installer_targets() {
 	if [ "$PROVII_ZSH_COMP" ]; then
 		if echo "$_INSTALLER_VARS" | grep -q '$ZSH_COMP'; then
 			target_zsh_comp="$(
-				printf "ZSH COMPLETIONS\t%s/_%s\n" \
+				printf "%s,%s/_%s\n" "$(style VAR "ZSH COMPLETIONS")" \
 					"$PROVII_ZSH_COMP" "$INSTALLER"
 			)"
 		fi
@@ -560,7 +561,7 @@ show_installer_targets() {
 					sed -En 's#^.*\$MAN(\")?/(man[0-9]).*$#\2#p'
 			)"
 			target_man="$(
-				printf "MAN PAGE\t%s/%s/%s.%s\n" \
+				printf "%s,%s/%s/%s.%s\n" "$(style VAR "MAN PAGE")" \
 					"$PROVII_MAN" "$_MAN_SUBDIR" "$INSTALLER" "${_MAN_SUBDIR#man}"
 			)"
 		fi
@@ -572,42 +573,30 @@ show_installer_targets() {
 
 	target_dirs="$(
 		printf '\n%s' \
-			${target_exe:+$target_exe} \
-			${target_man:+$target_man} \
-			${target_zsh_comp:+$target_zsh_comp} \
-			${target_bash_comp:+$target_bash_comp}
+			"${target_exe:+$target_exe}" \
+			"${target_man:+$target_man}" \
+			"${target_zsh_comp:+$target_zsh_comp}" \
+			"${target_bash_comp:+$target_bash_comp}"
 	)"
 
-	_COL1_WIDTH=0
 	_TABLE_WIDTH=0
-
 	for line in $target_dirs; do
-		col1="$(echo "$line" | cut -d -f1)"
-		[ "${#col1}" -gt "$_COL1_WIDTH" ] && _COL1_WIDTH="${#col1}"
 		[ "${#line}" -gt "$_TABLE_WIDTH" ] && _TABLE_WIDTH="${#line}"
 	done
+	_TABLE_WIDTH="$(expr \( "$_TABLE_WIDTH" - \
+		\( "${#STYLE_VAR}" + "${#STYLE_RESET}" - 2 \) \))"
 
 	header_fmt="$(
 		printf '\n%s%%-%is\n\n%s' \
 			"${STYLE_HEADER}" "$_TABLE_WIDTH" "${STYLE_RESET}"
 	)"
 	printf "$header_fmt" "$INSTALLER"
-
-	echo "$target_dirs" | awk \
-		-v col1_width="$_COL1_WIDTH" \
-		-v style1="$STYLE_ECHO" \
-		-v nostyle="$STYLE_RESET" \
-		'BEGIN{ 
-		FS="\t"; RS="\n"; 
-	}{ 
-		fmt=sprintf(" %s%%-%is%s%%s\n", style1, col1_width, nostyle)
-		printf(fmt, $1, $2)
-	}'
+	printf %s "$target_dirs" | column -t -s,
 
 	if [ "$INTERACTIVE" ]; then
 		prompt 'Press Enter to continue.'
 	fi
-	IFS="$OLD_IFS"
+	# IFS="$OLD_IFS"
 }
 
 ls_installers() {
