@@ -16,8 +16,8 @@ fi
 
 PROVII_BRANCH=posix
 CLEAN_CACHE=1
-CHAR_TAB=$(printf %s '\t')
-CHAR_NL=$(printf %s '\n')
+CHAR_TAB="$(printf %s '\t')"
+CHAR_NL="$(printf %s '\n')"
 
 if [ "$DEBUG" ]; then
 	set -x
@@ -322,7 +322,7 @@ set_provii_man() {
 		MAN_DIR_ALT="/usr/share/man"
 
 		if has_cmd manpath; then
-			MANPATH_DIRS="$(manpath -g | tr : $CHAR_NL)"
+			MANPATH_DIRS="$(manpath -g | tr : "$CHAR_NL")"
 			if echo "$MANPATH_DIRS" | grep -q "$MAN_DIR_PREFERRED"; then
 				PROVII_MAN="$MAN_DIR_PREFERRED"
 			elif echo "$MANPATH_DIRS" | grep -q "$MAN_DIR_ALT"; then
