@@ -520,8 +520,8 @@ show_installer_targets() {
 	if [ "$PROVII_BASH_COMP" ]; then
 		if echo "$_INSTALLER_VARS" | grep -q '$BASH_COMP'; then
 			target_bash_comp="$(
-				printf "BASH COMPLETIONS\t%s/%s.bash-completion\n"
-				"$PROVII_BASH_COMP" "$INSTALLER"
+				printf "BASH COMPLETIONS\t%s/%s.bash-completion\n" \
+					"$PROVII_BASH_COMP" "$INSTALLER"
 			)"
 		fi
 	fi
