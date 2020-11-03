@@ -3,9 +3,6 @@
 # robust cli image viewing / manipulation tool
 # https://imagemagick.org
 
-# NOTE: for a large library of scripts that use ImageMagicks
-#- capabilities see, http://www.fmwconcepts.com/imagemagick/index.php
-
 URL_FQDN='imagemagick.org'
 URL_DIRS='/download/binaries/'
 URL_FILE='magick'

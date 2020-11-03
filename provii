@@ -1,8 +1,8 @@
-#!/bin/bash -eE
+#!/bin/sh -eE
 
 cleanup() {
 	if [ "$RESET_TABS" ]; then
-		tabs -0
+		tabs -8
 	fi
 	if [ "$CLEAN_CACHE" ]; then
 		${PROVII_CACHE:+rm -rf $PROVII_CACHE}
@@ -14,7 +14,10 @@ if command -v tabs >/dev/null 2>&1; then
 	trap 'cleanup' EXIT
 fi
 
+PROVII_BRANCH=posix
 CLEAN_CACHE=1
+CHAR_TAB=$(printf %s '\t')
+CHAR_NL=$(printf %s '\n')
 
 if [ "$DEBUG" ]; then
 	set -x
@@ -48,7 +51,7 @@ _help='
 provii - command line utility installer
 usage: 
        provii install [-vi] APPLICATION
-       provii env [APPLICATION]
+		 provii env [APPLICATION]
        provii cat APPLICATION
        provii ls
        provii help [SUBCOMMAND]
@@ -87,14 +90,29 @@ has_cmd() {
 }
 
 create_dir() {
-	mkdir -p "$1"
-	if [ "$?" -eq 0 ]; then
-		# log --created "$dir"
-		true
-	else
-		warn Failed to create "$dir"
+	mkdir -p "$1" || {
+		warn Failed to create "$1"
 		return 1
-	fi
+	}
+}
+
+style() {
+	case "${1:?}" in
+	ERROR) STYLE="$MAGENTA" ;;
+	COLOR) STYLE="$MAGENTA" ;;
+	VAR) STYLE="$MAGENTA" ;;
+	FILE) STYLE="$CYAN" ;;
+	HEADER) STYLE="${UNDERLINE}${CYAN}" ;;
+	INFO) STYLE="$RED" ;;
+	*) [ '\e' = "$(echo "$1" | cut -c1)" ] && STYLE="$1" ;;
+	esac
+
+	printf '%s%s%s' "${STYLE:?}" "${2:-"$(cat)"}" "$STYLE_RESET"
+}
+
+prompt() {
+	printf %s "${@:-"$(cat)"}"
+	unset REPLY
 }
 
 #  installs jq to $HOME/.local/bin/jq, where it will be looked
@@ -107,7 +125,7 @@ install_jq() {
 	set_provii_os
 	set_provii_arch
 
-	if [ "$PROVII_OS" == 'darwin' ]; then
+	if [ "$PROVII_OS" = 'darwin' ]; then
 		JQ_FILE="jq-osx-amd64"
 	else
 		case "$PROVII_ARCH" in
@@ -136,14 +154,13 @@ source_proviirc() {
 	if [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/proviirc" ]; then
 		PROVIIRC="${XDG_CONFIG_HOME-$HOME/.config}/proviirc"
 
-		printf '%sINFO%s sourcing %s\n' \
-			"${STYLE_INFO}" \
-			"${STYLE_RESET}" \
-			"${CYAN}$PROVIIRC${STYLE_RESET}"
+		printf '%s sourcing %s\n' \
+			"$(style INFO "INFO")" \
+			"$(style FILE "$PROVIIRC")"
 
 		if [ "$VERBOSE" ]; then
 			_PROVIIRC_VARS_RE=$(printf '^provii_%s=\\b' "$PROVII_VARS")
-			printf '%s%s\n' "$TAB" $(grep "$_PROVIIRC_VARS_RE" "$PROVIIRC")
+			printf '%s%s\n' "$TAB" "$(grep "$_PROVIIRC_VARS_RE" "$PROVIIRC")"
 		fi
 
 		. "$PROVIIRC"
@@ -228,7 +245,7 @@ set_provii_data() {
 }
 
 has_package() {
-	if [ "$#" -eq 2 ] && [ "$1" == '--version' ] && [ -n "$2" ]; then
+	if [ "$#" -eq 2 ] && [ "$1" = '--version' ] && [ -n "$2" ]; then
 		ECHO_PACKAGE_VERSION=1
 		PACKAGE="$2"
 	elif [ "$#" -eq 2 ] && [ -n "$1" ]; then
@@ -237,9 +254,9 @@ has_package() {
 		err "Usage: has_package [--version] PACKAGE"
 	fi
 
-	if command -v rpm &>/dev/null; then
+	if has_cmd rpm; then
 		QUERYPKG_CMD_FMT='rpm -qa --queryformat %s  name=%s'
-	elif command -v dpkg-query &>/dev/null; then
+	elif has_cmd dkpg-query; then
 		QUERYPKG_CMD_FMT='dpkg-query --showformat=%s --show %s'
 	else
 		err "Function has_package failed to locate " \
@@ -257,16 +274,18 @@ has_package() {
 
 rm_app() {
 	set_provii_log
-	RM_FILES="$(awk -v app="${1:?}" '$3 == app { print $4 }' "$PROVII_LOG")"
-	if [ -n "$RM_FILES" ]; then
+	APP="${1:?}"
+	APP_FILES="$(awk -v app="$APP" '$3 == app { print $4 }' "$PROVII_LOG")"
+
+	if [ -n "$APP_FILES" ]; then
 		if [ "$INTERACTIVE" ]; then
 			printf "\nThe following files associated with %s were found:\n" "$1"
-			printf '%s' "$CYAN"
-			printf '\t%s\n' "$CYAN" $RM_FILES "$STYLE_RESET"
-			printf '%s' "$STYLE_RESET"
-			read -p "Delete all files associated with $1? [Y|n] " RESPONSE
-			case "$RESPONSE" in
-			N* | n*)
+			printf '\t%s\n' "$APP_FILES" | style FILE
+
+			printf '\n\nDelete all files associated with %s? [Y|n] ' "$1" | prompt
+			read -r
+			case "$REPLY" in
+			[Nn]*)
 				echo "Exiting without removing $1."
 				exit
 				;;
@@ -302,8 +321,8 @@ set_provii_man() {
 		MAN_DIR_PREFERRED="/usr/local/share/man"
 		MAN_DIR_ALT="/usr/share/man"
 
-		if command -v manpath &>/dev/null; then
-			MANPATH_DIRS="$(manpath -g | tr : $'\n')"
+		if has_cmd manpath; then
+			MANPATH_DIRS="$(manpath -g | tr : $CHAR_NL)"
 			if echo "$MANPATH_DIRS" | grep -q "$MAN_DIR_PREFERRED"; then
 				PROVII_MAN="$MAN_DIR_PREFERRED"
 			elif echo "$MANPATH_DIRS" | grep -q "$MAN_DIR_ALT"; then
@@ -355,7 +374,7 @@ set_provii_bash_comp() {
 	case "$PROVII_SCOPE" in
 	system)
 		PROVII_BASH_COMP=${SYS_BASH_COMP-/etc/bash_completion.d}
-		if command -v manpath &>/dev/null; then
+		if has_cmd manpath; then
 			for MAN_PATH in $(manpath -g | tr : $'\n'); do
 				if [ -d "$MAN_PATH" ] && [ -w "$MAN_PATH" ]; then
 					PROVII_MAN="$MAN_PATH"
@@ -371,7 +390,7 @@ set_provii_bash_comp() {
 
 		if [ -n "$BASH_COMP_VER" ]; then
 			XDG_ENABLED_BASH_COMP_VER='2.9'
-			if [ "${BASH_COMP_VER//./}" -ge "${XDG_ENABLED_BASH_COMP_VER//./}" ] &&
+			if expr \( "$BASH_COMP_VER" \< 2.9 \) >/dev/null &&
 				[ -n "$XDG_DATA_HOME" ] && [ -n "$XDG_CONFIG_HOME" ]; then
 				# see, https://github.com/scop/bash-completion/tree/2.8
 				PROVII_BASH_COMP="${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion.d"
@@ -386,7 +405,8 @@ set_provii_bash_comp() {
 
 			# make sure there's a line in bash_completion (config) to
 			# source the files in bash-completion.d gets sourced
-			COMP_DIR_RE="$(printf '^[^#].*%s' "${PROVII_BASH_COMP//\./\\.}")"
+			BASH_COMP_DIR_ESCAPED="$(printf %s "$PROVII_BASH_COMP" | sed 's/\./\\./g')"
+			COMP_DIR_RE="$(printf '^[^#].*%s' "$BASH_COMP_DIR_ESCAPED")"
 			if ! grep -q "$COMP_DIR_RE" "$PROVII_BASH_CONFIG" 2>/dev/null; then
 				printf '
 for i in %s/*; do
@@ -508,8 +528,8 @@ get_installer_vars() {
 	[ -z "$INSTALLATION_SCRIPT" ] && err \
 		"Installation script has not been downloaded yet"
 
-	VARS_RE="$(echo -E "$PROVII_VARS" | sed -E 's/(\\[(|])/\1$/g')"
-	printf '\n%s' $(echo "$INSTALLATION_SCRIPT" | grep -o $VARS_RE)
+	VARS_RE="$(printf %s "$PROVII_VARS" | sed -E 's/(\\[(|])/\1$/g')"
+	printf '\n%s' "$(echo "$INSTALLATION_SCRIPT" | grep -o "$VARS_RE")"
 }
 
 show_installer_targets() {
@@ -520,8 +540,8 @@ show_installer_targets() {
 	if [ "$PROVII_BASH_COMP" ]; then
 		if echo "$_INSTALLER_VARS" | grep -q '$BASH_COMP'; then
 			target_bash_comp="$(
-				printf "BASH COMPLETIONS\t%s/%s.bash-completion\n"
-				"$PROVII_BASH_COMP" "$INSTALLER"
+				printf "BASH COMPLETIONS\t%s/%s.bash-completion\n" \
+					"$PROVII_BASH_COMP" "$INSTALLER"
 			)"
 		fi
 	fi
@@ -547,7 +567,8 @@ show_installer_targets() {
 	fi
 
 	OLD_IFS="$IFS"
-	export IFS=$'\n'
+	export IFS='
+	'
 
 	target_dirs="$(
 		printf '\n%s' \
@@ -561,15 +582,14 @@ show_installer_targets() {
 	_TABLE_WIDTH=0
 
 	for line in $target_dirs; do
-		col1_len="$(echo "$line" | cut -d$'\t' -f1 | wc -c)"
-		[ "$col1_len" -gt "$_COL1_WIDTH" ] && _COL1_WIDTH="$col1_len"
-		full_line_len="$(echo "$line" | wc -c)"
-		[ "$full_line_len" -gt "$_TABLE_WIDTH" ] && _TABLE_WIDTH="$full_line_len"
+		col1="$(echo "$line" | cut -d -f1)"
+		[ "${#col1}" -gt "$_COL1_WIDTH" ] && _COL1_WIDTH="${#col1}"
+		[ "${#line}" -gt "$_TABLE_WIDTH" ] && _TABLE_WIDTH="${#line}"
 	done
 
 	header_fmt="$(
-		printf '\n%s%%-%is\n\n%s'
-		"${STYLE_HEADER}" "$_TABLE_WIDTH" "${STYLE_RESET}"
+		printf '\n%s%%-%is\n\n%s' \
+			"${STYLE_HEADER}" "$_TABLE_WIDTH" "${STYLE_RESET}"
 	)"
 	printf "$header_fmt" "$INSTALLER"
 
@@ -585,7 +605,7 @@ show_installer_targets() {
 	}'
 
 	if [ "$INTERACTIVE" ]; then
-		read -p "$(printf '\n%s' 'Press Enter to continue.')"
+		prompt 'Press Enter to continue.'
 	fi
 	IFS="$OLD_IFS"
 }
@@ -596,46 +616,32 @@ ls_installers() {
 		"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}")"
 	JQ_QUERY='.[] | [ .name, .download_url ] | @csv'
 
-	(
-		while IFS=',' read -r SOFTWARE_NAME INSTALLATION_SCRIPT_URL; do
-			curl -sSL "$INSTALLATION_SCRIPT_URL" | awk -v name="$SOFTWARE_NAME" '
-			BEGIN{ RS=""; FS="\n"; OFS="\n"; ORS=""}
-			{ 
-				if (NR == 2) {
-					{
-					if (match($NF, /http[^ ]*[ ]*$/, url))
-						$NF=""
-						web=url[0]
-					}
-					gsub( /# /, "")
-					gsub( /\n/, " ")
-					printf("%s\n%s\n%s\n\n", name, $0, web)
-				}
-		}' | awk \
-				-v url_color="${BLUE}${UNDERLINE}" \
-				-v url_end_style="${STYLE_RESET}${NO_UNDERLINE}" \
-				-v name_color="${STYLE_RESET}${MAGENTA}" \
-				-v style_reset="${STYLE_RESET}${STYLE_RESET}" \
-				-v col_width_desc=80 \
-				-v list_urls="true" ' 
-			BEGIN{ 
-				RS=""
-				FS="\n"
-			}{
-				if ( list_urls == "" )
-				{
-					$3=""
-				}
-				fmt=sprintf("%%s%%10-s%%s%%-%ss%%5s%%s\n", col_width_desc)
-				printf(fmt,
-					name_color, $1, style_reset,
-					$2,
-					url_color, $3, url_end_style)
-			}'
-		done < <(curl -sSL "$GITHUB_QUERY_LS" | "$JQ" -r "$JQ_QUERY" | tr -d '"')
-	) &
-	PIDS="$PIDS $!"
-	echo $PIDS
+	for line in $(curl -sSL "$GITHUB_QUERY_LS" | jq -r "$JQ_QUERY" | tr -d '"'); do
+		(
+			APP="${line%,*}"
+			curl -sSL "${line#*,}" |
+				grep -E '(^# ).+' |
+				sed -n 's/^# //p' |
+				awk -v app="$APP" \
+					-v style_url="${BLUE}${UNDERLINE}" \
+					-v style_reset_url="${STYLE_RESET}${NO_UNDERLINE}" \
+					-v style_name="${STYLE_RESET}${MAGENTA}" \
+					-v style_reset="${STYLE_RESET}${STYLE_RESET}" \ '
+					BEGIN{
+						RS=""
+						FS="\n"
+					}{
+						printf "%s%s%s|", style_name,app,style_reset
+						for(i=2; i<=NF; i++) {
+							if ($i ~ /^http/) url=$i
+							printf("%s ", $(i-1))
+						}
+						printf "|%s%s%s\n", style_url,url,style_reset_url
+					}'
+		) &
+	done | column -t -s\|
+	wait
+	exit
 }
 
 fn_install=$(
@@ -886,7 +892,7 @@ warn() {
 }
 
 _ERROR_PREFIX='Error: '
-_ERROR_SPACER="$(printf '%*s' "$(echo -n "$_ERROR_PREFIX" | wc -c)")"
+_ERROR_SPACER="$(printf '%*s' "$(printf %s "$_ERROR_PREFIX" | wc -c)" ' ')"
 export _ERROR_PREFIX _ERROR_SPACER
 err() {
 	printf "\n%s%s" "${STYLE_ERROR}$_ERROR_PREFIX${STYLE_RESET}" "$@"
@@ -1031,7 +1037,7 @@ run_installer() {
 	PID=$!
 	STRACE_RE='^.*(([[:digit:]]{2}:?){3}).*[[:digit:]]<(.*)>'
 	DATE="$(date --iso-8601)"
-	TEMP_LOG="$(mktemp -p $PROVII_CACHE)"
+	TEMP_LOG="$(mktemp -p "$PROVII_CACHE")"
 
 	strace -p "$PID" -fytze trace=open,creat,openat 2>&1 |
 		grep -E 'O_CREAT|O_TRUNC' |
@@ -1159,17 +1165,15 @@ main() {
 	wipe)
 		APPS_INSTALLED="$(awk '{print $3}' ~/.provii.log | sort | uniq)"
 
-		printf "\n%sWARNING%s: ABOUT TO PERMENANTLY REMOVE ALL APPS. USE WITH CAUTION.\n" "$MAGENTA" "$STYLE_RESET"
+		printf "\n%sWARNING%s: ABOUT TO PERMENANTLY REMOVE ALL APPS. USE WITH CAUTION.\n\n" "$MAGENTA" "$STYLE_RESET"
 
-		printf '\n%s' "$STYLE_FILES"
 		tabs -8
-		echo "$APPS_INSTALLED" | column -c 80 -x
-		printf '%s' "$STYLE_RESET"
+		echo "$APPS_INSTALLED" | column -c 80 -x | style FILE
 
-		PROMPT="$(printf '\n%s %s ' 'Continue?' '[y|N]')"
-		read -p "$PROMPT" RESPONSE
-		case "$RESPONSE" in
-		Y* | y*)
+		printf \\n\\n%s\  'Continue? [y|N]' | prompt
+		read -r
+		case "$REPLY" in
+		[Yy]*)
 			for app in $APPS_INSTALLED; do
 				printf '\t%sRemoving:%s %s\n' "$STYLE_ECHO" "$STYLE_RESET" "$app"
 			done
