@@ -1063,7 +1063,8 @@ if [ "$(basename "$0")" != 'provii' ]; then
 	INSTALLER="$(basename "$0")"
 	gather_facts
 	INSTALLATION_SCRIPT="$(get_installer)"
-	run_installer "$(basename "$0")"
+	show_installer_targets
+	run_installer "$INSTALLATION_SCRIPT"
 	exit
 fi
 
