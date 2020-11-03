@@ -1053,127 +1053,123 @@ run_installer() {
 	mv "$PROVII_LOG.new" "$PROVII_LOG"
 }
 
-main() {
-	if has_cmd jq; then
-		JQ="$(command -v jq)"
-	else
-		install_jq
-	fi
+if has_cmd jq; then
+	JQ="$(command -v jq)"
+else
+	install_jq
+fi
 
-	if [ "$(basename "$0")" != 'provii' ]; then
-		run_installer "$(basename "$0")"
-		exit
-	fi
+if [ "$(basename "$0")" != 'provii' ]; then
+	run_installer "$(basename "$0")"
+	exit
+fi
 
-	cmd="$1"
-	shift
-	case "$cmd" in
-	install)
-		while :; do
-			case "$1" in
-			-v) VERBOSE=1 ;;
-			-i) INTERACTIVE=1 ;;
-			-h) print_usage 'install' ;;
-			-b)
-				shift
-				PROVII_BRANCH="$1"
-				;;
-			--)
-				shift
-				break
-				;;
-			-*) usage_error 'install' "bad argument $1" ;;
-			*) break ;;
-			esac
+cmd="$1"
+shift
+case "$cmd" in
+install)
+	while :; do
+		case "$1" in
+		-v) VERBOSE=1 ;;
+		-i) INTERACTIVE=1 ;;
+		-h) print_usage 'install' ;;
+		-b)
 			shift
-		done
-		for APP in "$@"; do
-			INSTALLER="$APP"
-			gather_facts
-			INSTALLATION_SCRIPT="$(get_installer)"
-			show_installer_targets
-			run_installer "$INSTALLATION_SCRIPT"
-		done
-		;;
-	ls)
-		while :; do
-			case "$1" in
-			-h) print_usage 'ls' ;;
-			-*) usage_error 'ls' "bad argument $1" ;;
-			*) break ;;
-			esac
-			shift
-		done
-		ls_installers
-		;;
-	env)
-		while :; do
-			case "$1" in
-			-h) print_usage 'env' ;;
-			-*) usage_error 'env' "bad argument $1" ;;
-			*) break ;;
-			esac
-			shift
-		done
-		[ -n "$1" ] && INSTALLER="$1"
-		gather_facts
-		run_installer "$PRINT_VARIABLES"
-		;;
-	cat)
-		while :; do
-			case "$1" in
-			-h) print_usage 'cat' ;;
-			-b)
-				shift
-				PROVII_BRANCH="$1"
-				;;
-			-*) usage_error 'cat' "bad argument $1" ;;
-			*) break ;;
-			esac
-			shift
-		done
-		INSTALLER="$1"
-		if has_cmd bat; then
-			get_installer | bat --style=grid,numbers --language="bash"
-		else
-			get_installer
-		fi
-		;;
-	rm)
-		while :; do
-			case "$1" in
-			-h) print_usage 'rm' ;;
-			-i) INTERACTIVE=1 ;;
-			-*) usage_error 'cat' "bad argument $1" ;;
-			*) break ;;
-			esac
-			shift
-		done
-		rm_app "$1"
-		;;
-	wipe)
-		APPS_INSTALLED="$(awk '{print $3}' ~/.provii.log | sort | uniq)"
-
-		printf "\n%sWARNING%s: ABOUT TO PERMENANTLY REMOVE ALL APPS. USE WITH CAUTION.\n\n" "$MAGENTA" "$STYLE_RESET"
-
-		tabs -8
-		echo "$APPS_INSTALLED" | column -c 80 -x | style FILE
-
-		printf \\n\\n%s\  'Continue? [y|N]' | prompt
-		read -r
-		case "$REPLY" in
-		[Yy]*)
-			for app in $APPS_INSTALLED; do
-				printf '\t%sRemoving:%s %s\n' "$STYLE_ECHO" "$STYLE_RESET" "$app"
-			done
+			PROVII_BRANCH="$1"
 			;;
-		*)
-			echo "Exiting without removing any files."
-			exit
+		--)
+			shift
+			break
 			;;
+		-*) usage_error 'install' "bad argument $1" ;;
+		*) break ;;
 		esac
+		shift
+	done
+	for APP in "$@"; do
+		INSTALLER="$APP"
+		gather_facts
+		INSTALLATION_SCRIPT="$(get_installer)"
+		show_installer_targets
+		run_installer "$INSTALLATION_SCRIPT"
+	done
+	;;
+ls)
+	while :; do
+		case "$1" in
+		-h) print_usage 'ls' ;;
+		-*) usage_error 'ls' "bad argument $1" ;;
+		*) break ;;
+		esac
+		shift
+	done
+	ls_installers
+	;;
+env)
+	while :; do
+		case "$1" in
+		-h) print_usage 'env' ;;
+		-*) usage_error 'env' "bad argument $1" ;;
+		*) break ;;
+		esac
+		shift
+	done
+	[ -n "$1" ] && INSTALLER="$1"
+	gather_facts
+	run_installer "$PRINT_VARIABLES"
+	;;
+cat)
+	while :; do
+		case "$1" in
+		-h) print_usage 'cat' ;;
+		-b)
+			shift
+			PROVII_BRANCH="$1"
+			;;
+		-*) usage_error 'cat' "bad argument $1" ;;
+		*) break ;;
+		esac
+		shift
+	done
+	INSTALLER="$1"
+	if has_cmd bat; then
+		get_installer | bat --style=grid,numbers --language="bash"
+	else
+		get_installer
+	fi
+	;;
+rm)
+	while :; do
+		case "$1" in
+		-h) print_usage 'rm' ;;
+		-i) INTERACTIVE=1 ;;
+		-*) usage_error 'cat' "bad argument $1" ;;
+		*) break ;;
+		esac
+		shift
+	done
+	rm_app "$1"
+	;;
+wipe)
+	APPS_INSTALLED="$(awk '{print $3}' ~/.provii.log | sort | uniq)"
+
+	printf "\n%sWARNING%s: ABOUT TO PERMENANTLY REMOVE ALL APPS. USE WITH CAUTION.\n\n" "$MAGENTA" "$STYLE_RESET"
+
+	tabs -8
+	echo "$APPS_INSTALLED" | column -c 80 -x | style FILE
+
+	printf \\n\\n%s\  'Continue? [y|N]' | prompt
+	read -r
+	case "$REPLY" in
+	[Yy]*)
+		for app in $APPS_INSTALLED; do
+			printf '\t%sRemoving:%s %s\n' "$STYLE_ECHO" "$STYLE_RESET" "$app"
+		done
+		;;
+	*)
+		echo "Exiting without removing any files."
+		exit
 		;;
 	esac
-}
-
-main "$@"
+	;;
+esac
