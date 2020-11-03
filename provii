@@ -1060,6 +1060,9 @@ else
 fi
 
 if [ "$(basename "$0")" != 'provii' ]; then
+	INSTALLER="$(basename "$0")"
+	gather_facts
+	INSTALLATION_SCRIPT="$(get_installer)"
 	run_installer "$(basename "$0")"
 	exit
 fi
