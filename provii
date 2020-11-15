@@ -17,7 +17,8 @@ fi
 PROVII_BRANCH=posix
 CLEAN_CACHE=1
 CHAR_TAB="$(printf %s '\t')"
-CHAR_NL="$(printf %s '\n')"
+CHAR_NL='
+'
 
 if [ "$DEBUG" ]; then
 	set -x
@@ -308,6 +309,7 @@ rm_app() {
 
 set_provii_log() {
 	PROVII_LOG=${PROVII_LOG:-"$HOME/.provii.log"}
+	touch "$PROVII_LOG"
 }
 
 set_provii_man() {
@@ -345,7 +347,7 @@ set_provii_man() {
 		MAN_DIR_PREFERRED="${XDG_DATA_HOME:-HOME/.local/share}/man"
 
 		if has_cmd manpath; then
-			MANPATH_DIRS="$(manpath | tr ":" $'\n')"
+			MANPATH_DIRS="$(manpath | tr ":" "$CHAR_NL")"
 			if echo "$MANPATH_DIRS" | grep -q "$MAN_DIR_PREFERRED"; then
 				PROVII_MAN="$MAN_DIR_PREFERRED"
 			elif echo "$MANPATH_DIRS" | grep -q "$HOME"; then
@@ -354,14 +356,18 @@ set_provii_man() {
 				# else, add MAN_DIR_PREFERRED to manpath
 				PROVII_MAN="${XDG_DATA_HOME:-HOME/.local/share}/man"
 				echo "MANDATORY_MANPATH $PROVII_MAN" >"$HOME/.manpath"
-				create_dir "$PROVII_MAN"/man{1,5,8}
+				create_dir "$PROVII_MAN"/man1
+				create_dir "$PROVII_MAN"/man5
+				create_dir "$PROVII_MAN"/man8
 			fi
 		else
 			if has_package man-db; then
 				# else, add MAN_DIR_PREFERRED to manpath
 				PROVII_MAN="${XDG_DATA_HOME:-HOME/.local/share}/man"
 				echo "MANDATORY_MANPATH $PROVII_MAN" >"$HOME/.manpath"
-				create_dir "$PROVII_MAN"/man{1,5,8}
+				create_dir "$PROVII_MAN"/man1
+				create_dir "$PROVII_MAN"/man5
+				create_dir "$PROVII_MAN"/man8
 			else
 				warn 'Package not installed: man-db. Failed to set $BASH_COMP variable.'
 			fi
@@ -535,8 +541,11 @@ get_installer_vars() {
 show_installer_targets() {
 	_INSTALLER_VARS="$(get_installer_vars "$INSTALLER")"
 
-	target_exe="$(printf "%s,%s/%s\n" "$(style VAR "EXECUTABLE")" \
-		"$PROVII_BIN" "$INSTALLER")"
+	target_exe="$(
+		printf "%s,%s/%s\n" \
+			"$(style VAR "EXECUTABLE")" \
+			"$PROVII_BIN" "$INSTALLER"
+	)"
 
 	if [ "$PROVII_BASH_COMP" ]; then
 		if echo "$_INSTALLER_VARS" | grep -q '$BASH_COMP'; then
