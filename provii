@@ -14,9 +14,8 @@ if command -v tabs >/dev/null 2>&1; then
 	trap 'cleanup' EXIT
 fi
 
-PROVII_BRANCH=posix
+PROVII_BRANCH=master
 CLEAN_CACHE=1
-CHAR_TAB="$(printf %s '\t')"
 CHAR_NL='
 '
 
@@ -600,7 +599,7 @@ show_installer_targets() {
 			"${STYLE_HEADER}" "$_TABLE_WIDTH" "${STYLE_RESET}"
 	)"
 	printf "$header_fmt" "$INSTALLER"
-	printf %s "$target_dirs" | column -t -s,
+	printf %s\\n "$target_dirs" | column -t -s,
 
 	if [ "$INTERACTIVE" ]; then
 		prompt 'Press Enter to continue.'
