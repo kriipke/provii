@@ -1106,6 +1106,25 @@ install)
 		run_installer "$INSTALLATION_SCRIPT"
 	done
 	;;
+log)
+	while :; do
+		case "$1" in
+		-h) print_usage 'log' ;;
+		-*) usage_error 'log' "bad argument $1" ;;
+		*)
+			[ $# -gt 1 ] && print_usage 'log'
+			break
+			;;
+		esac
+		shift
+	done
+	set_provii_log
+	if [ "$1" ]; then
+		column -t "$PROVII_LOG" | sort | awk -v app="$1" '$3 == app'
+	else
+		column -t "$PROVII_LOG" | sort
+	fi
+	;;
 ls)
 	while :; do
 		case "$1" in
