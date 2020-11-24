@@ -3,7 +3,7 @@
 # command-line benchmarking utility
 # https://github.com/sharkdp/hyperfine
 
-github sharkdp/bat "$ARCH.*$OS.*($LIBC)?.*gz"
+github sharkdp/bat "$ARCH.*$OS.*$LIBC.*gz"
 tar -xf ./* --strip=1
 
 install hyperfine

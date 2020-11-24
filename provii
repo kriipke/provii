@@ -26,7 +26,6 @@ if [ "$DEBUG" ]; then
 	PS4='${TAB}${MAGENTA}provii $LINENO ::${STYLE_RESET} '
 fi
 
-PROVII_BRANCH="arch_regex"
 PROVII_VARS='\(OS\|SCOPE\|LIBC\|BASH_COMP\|ZSH_COMP\|MAN\|NAME\|CACHE\|ARCH\|BIN\|LOG\)'
 
 if command -v tput >/dev/null 2>&1; then
@@ -82,7 +81,7 @@ print_usage() {
 }
 
 has_cmd() {
-	if command -v "$1" >/dev/null 2>&1; then
+	if command -v "$1" >/dev/null; then
 		return 0
 	else
 		return 1
@@ -102,6 +101,7 @@ style() {
 	COLOR) STYLE="$MAGENTA" ;;
 	VAR) STYLE="$MAGENTA" ;;
 	FILE) STYLE="$CYAN" ;;
+	DIR) STYLE="$CYAN" ;;
 	HEADER) STYLE="${UNDERLINE}${CYAN}" ;;
 	INFO) STYLE="$RED" ;;
 	*) [ '\e' = "$(echo "$1" | cut -c1)" ] && STYLE="$1" ;;
@@ -222,18 +222,29 @@ set_provii_bin() {
 			fi
 
 			if echo "$PATH_DIRS" | grep -q "$BIN_DEFAULT"; then
-				create_dir "$BIN_DEFAULT"
 				PROVII_BIN="$BIN_DEFAULT"
 			elif echo "$PATH_DIRS" | grep -q "$BIN_FALLBACK"; then
-				create_dir "$BIN_FALLBACK"
 				PROVII_BIN="$BIN_FALLBACK"
+			elif echo "$PATH_DIRS" | grep -m 1 "^$HOME"; then
+                PROVII_BIN="$( echo "$PATH_DIRS" | grep -m 1 "^$HOME" )"
 			else
-				err 'Value selected for $PROVII_BIN, '"$PROVII_BIN"', not in PATH'
+              err Neither the default target for binaries, \
+                "$(style DIR "$BIN_DEFAULT")", nor the fallback target, \
+                "$(style DIR "$BIN_FALLBACK")", was found in PATH. Either \
+                Add one of the above directories to your PATH, add a \
+                directory to your PATH that resides in your home directory, \
+                or re-run provii. Exiting without making any changes.
 			fi
 		fi
 		;;
 	esac
-	create_dir "${PROVII_BIN:?}"
+
+    create_dir "${PROVII_BIN:?}"
+    if ! [ -w $PROVII_BIN ]; then
+      err Target directory for binary files, "$(style DIR "$PROVII_BIN")",\
+        is not writable, please correct this or change default target and \
+        re-run. Exiting without making any changes.
+    fi
 }
 
 set_provii_data() {
@@ -248,7 +259,7 @@ has_package() {
 	if [ "$#" -eq 2 ] && [ "$1" = '--version' ] && [ -n "$2" ]; then
 		ECHO_PACKAGE_VERSION=1
 		PACKAGE="$2"
-	elif [ "$#" -eq 2 ] && [ -n "$1" ]; then
+	elif [ "$#" -eq 1 ] && [ -n "$1" ]; then
 		PACKAGE="$1"
 	else
 		err "Usage: has_package [--version] PACKAGE"
@@ -256,7 +267,7 @@ has_package() {
 
 	if has_cmd rpm; then
 		QUERYPKG_CMD_FMT='rpm -qa --queryformat %s  name=%s'
-	elif has_cmd dkpg-query; then
+	elif has_cmd dpkg-query; then
 		QUERYPKG_CMD_FMT='dpkg-query --showformat=%s --show %s'
 	else
 		err "Function has_package failed to locate " \
@@ -343,7 +354,7 @@ set_provii_man() {
 			PROVII_MAN="$PROVII_USER_MAN"
 			return 0
 		}
-		MAN_DIR_PREFERRED="${XDG_DATA_HOME:-HOME/.local/share}/man"
+		MAN_DIR_PREFERRED="${XDG_DATA_HOME:-$HOME/.local/share}/man"
 
 		if has_cmd manpath; then
 			MANPATH_DIRS="$(manpath | tr ":" "$CHAR_NL")"
@@ -353,7 +364,7 @@ set_provii_man() {
 				PROVII_MAN="$(echo "$MANPATH_DIRS" | grep -m 1 "$HOME")"
 			else
 				# else, add MAN_DIR_PREFERRED to manpath
-				PROVII_MAN="${XDG_DATA_HOME:-HOME/.local/share}/man"
+				PROVII_MAN="${XDG_DATA_HOME:-$HOME/.local/share}/man"
 				echo "MANDATORY_MANPATH $PROVII_MAN" >"$HOME/.manpath"
 				create_dir "$PROVII_MAN"/man1
 				create_dir "$PROVII_MAN"/man5
@@ -362,7 +373,7 @@ set_provii_man() {
 		else
 			if has_package man-db; then
 				# else, add MAN_DIR_PREFERRED to manpath
-				PROVII_MAN="${XDG_DATA_HOME:-HOME/.local/share}/man"
+				PROVII_MAN="${XDG_DATA_HOME:-$HOME/.local/share}/man"
 				echo "MANDATORY_MANPATH $PROVII_MAN" >"$HOME/.manpath"
 				create_dir "$PROVII_MAN"/man1
 				create_dir "$PROVII_MAN"/man5
@@ -892,7 +903,7 @@ _ERROR_PREFIX='Error: '
 _ERROR_SPACER="$(printf '%*s' "$(printf %s "$_ERROR_PREFIX" | wc -c)" ' ')"
 export _ERROR_PREFIX _ERROR_SPACER
 err() {
-	printf "\n%s%s" "${STYLE_ERROR}$_ERROR_PREFIX${STYLE_RESET}" "$@"
+	printf "\n%s%s" "${STYLE_ERROR}$_ERROR_PREFIX${STYLE_RESET}" "$*" | fmt -w 80
 	exit 1
 }
 
@@ -921,7 +932,7 @@ EOF
 fn_err="$(
 	cat <<'EOF'
 BASH_FUNC_err%%=() {
-printf "\n%s%s" "${STYLE_ERROR}$_ERROR_PREFIX${STYLE_RESET}" "$@"
+	printf "\n%s%s" "${STYLE_ERROR}$_ERROR_PREFIX${STYLE_RESET}" "$*" | fmt -w 80
 exit 1
 }
 EOF
@@ -974,6 +985,7 @@ set | grep -e ^NAME -e ^SCOPE -e ^OS -e ^ARCH -e ^LIBC \
 						if (var in vars) printf fmt, var, vars[var]
 					}
 				}
+				printf "\n\n"
 			}'
 EOF
 )"
