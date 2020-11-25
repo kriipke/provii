@@ -16,8 +16,10 @@ fi
 
 PROVII_BRANCH=master
 CLEAN_CACHE=1
-CHAR_NL='
-'
+
+CHAR_NL=\\012
+CHAR_TAB=\\011
+CHAR_SPCE=\\040
 
 if [ "$DEBUG" ]; then
 	set -x
@@ -33,12 +35,14 @@ if command -v tput >/dev/null 2>&1; then
 	if [ $(($(tput colors 2>/dev/null))) -ge 8 ]; then
 		RED="$(tput setaf 3 2>/dev/null || echo '')"
 		MAGENTA="$(tput setaf 5 2>/dev/null || echo '')"
+		YELLOW="$(tput setaf 4 2>/dev/null || echo '')"
 		CYAN="$(tput setaf 6 2>/dev/null || echo '')"
 		UNDERLINE="$(tput smul 2>/dev/null || echo '')"
 		NO_UNDERLINE="$(tput rmul 2>/dev/null || echo '')"
 		STYLE_RESET="$(tput sgr0 2>/dev/null || echo '')"
 	fi
-	STYLE_ERROR="$MAGENTA"
+	STYLE_ERROR="$RED"
+	STYLE_WARNING="$MAGENTA"
 	STYLE_ECHO="$MAGENTA"
 	STYLE_VAR="$MAGENTA"
 	STYLE_FILES="$CYAN"
@@ -97,9 +101,10 @@ create_dir() {
 
 style() {
 	case "${1:?}" in
-	ERROR) STYLE="$MAGENTA" ;;
+	ERROR) STYLE="$RED" ;;
+	WARNING) STYLE="$MAGENTA" ;;
 	COLOR) STYLE="$MAGENTA" ;;
-	VAR) STYLE="$MAGENTA" ;;
+	VAR) STYLE="$CYAN" ;;
 	FILE) STYLE="$CYAN" ;;
 	DIR) STYLE="$CYAN" ;;
 	HEADER) STYLE="${UNDERLINE}${CYAN}" ;;
@@ -160,7 +165,7 @@ source_proviirc() {
 
 		if [ "$VERBOSE" ]; then
 			_PROVIIRC_VARS_RE=$(printf '^provii_%s=\\b' "$PROVII_VARS")
-			printf '%s%s\n' "$TAB" "$(grep "$_PROVIIRC_VARS_RE" "$PROVIIRC")"
+			printf '\t%s\n' "$(grep "$_PROVIIRC_VARS_RE" "$PROVIIRC")"
 		fi
 
 		. "$PROVIIRC"
@@ -254,34 +259,57 @@ set_provii_data() {
 	esac
 	create_dir "${PROVII_DATA:?'Failed to set variable $DATA'}"
 }
-
 has_package() {
-	if [ "$#" -eq 2 ] && [ "$1" = '--version' ] && [ -n "$2" ]; then
-		ECHO_PACKAGE_VERSION=1
+	if [ "$#" -eq 2 ] && [ "$1" = '-v' ] && [ -n "$2" ]; then
+		ECHO_PKG_VERSION=1
 		PACKAGE="$2"
 	elif [ "$#" -eq 1 ] && [ -n "$1" ]; then
 		PACKAGE="$1"
 	else
-		err "Usage: has_package [--version] PACKAGE"
+		err "Usage: has_package [-v] PACKAGE"
 	fi
 
 	if has_cmd rpm; then
-		QUERYPKG_CMD_FMT='rpm -qa --queryformat %s  name=%s'
+		QUERYPKG_CMD_FMT='rpm -qa --queryformat %{VERSION}\\n  name=%s'
 	elif has_cmd dpkg-query; then
-		QUERYPKG_CMD_FMT='dpkg-query --showformat=%s --show %s'
+		QUERYPKG_CMD_FMT='dpkg-query --showformat=${Version}\\n --show %s'
 	else
 		err "Function has_package failed to locate " \
 			"either (1) rpm or (2) dpkg-query commands."
 	fi
 
-	PACKAGE_VERSION="$($(printf "$QUERYPKG_CMD_FMT" '%{VERSION}\n' "$PACKAGE"))"
-	if [ -n "$PACKAGE_VERSION" ]; then
-		[ "$ECHO_PACKAGE_VERSION" ] && echo "$PACKAGE_VERSION"
-		return 0
-	else
-		return 1
-	fi
+	PACKAGE_VERSION="$(`printf "$QUERYPKG_CMD_FMT"  $PACKAGE` \
+      | sed -En 's/([[:digit:]]:)?(.*)(-.*)/\2/p')"
+
+    case "$ECHO_PKG_VERSION" in
+      ''|0) return 1 ;;
+      *) echo "$PACKAGE_VERSION"
+    esac
 }
+
+# has_package() {
+# 
+#     echo packagakeeege "$PKG"
+# 	if has_cmd rpm; then
+#       PKG_QUERY_CMD='rpm -qa --queryformat %q  name=%s'
+#       PKG_QUERY_FMT='%{VERSION}\n'
+#     elif has_cmd dpkg-query; then
+#       PKG_QUERY_CMD="dpkg-query -W -f '%s' %s "
+#       #PKG_QUERY_CMD="dpkg-query -W -f '%s' %s | sed -En 's/([[:digit:]]:)?(.*)(-.*)/\\2/p'"
+#       PKG_QUERY_FMT='${Version}\\n'
+#     else
+#       err Function has_package failed to locate \
+#         either \(1\) rpm or \(2\) dpkg-query commands.
+#     fi
+# 
+# 	PACKAGE_VERSION=`printf "$PKG_QUERY_CMD" "$PKG_QUERY_FMT" "$PKG"`
+#     echo "PACKAGE_VERSION $PACKAGE_VERSION"
+# 
+#     case "$ECHO_PKG_VER" in
+#       ''|0) return 1 ;;
+#       *) echo "$PACKAGE_VERSION"
+#     esac
+# }
 
 rm_app() {
 	set_provii_log
@@ -391,7 +419,7 @@ set_provii_bash_comp() {
 	system)
 		PROVII_BASH_COMP=${SYS_BASH_COMP-/etc/bash_completion.d}
 		if has_cmd manpath; then
-			for MAN_PATH in $(manpath -g | tr : $'\n'); do
+			for MAN_PATH in $(manpath -g | tr : "$CHAR_NL"); do
 				if [ -d "$MAN_PATH" ] && [ -w "$MAN_PATH" ]; then
 					PROVII_MAN="$MAN_PATH"
 					break
@@ -402,7 +430,7 @@ set_provii_bash_comp() {
 	user)
 		# bash-completion 2.9 introduced the follow as a directory for completions:
 		# ${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion.d
-		BASH_COMP_VER="$(has_package --version 'bash-completion')"
+		BASH_COMP_VER="$(has_package -v 'bash-completion')"
 
 		if [ -n "$BASH_COMP_VER" ]; then
 			XDG_ENABLED_BASH_COMP_VER='2.9'
@@ -438,67 +466,71 @@ done' "$PROVII_BASH_COMP" >>"$PROVII_BASH_CONFIG"
 
 set_provii_zsh_comp() {
 	if has_cmd zsh; then
+
 		case "${PROVII_SCOPE:?}" in
 		system)
-			ZSH_COMP_DEFAULT=/usr/local/share/zsh/site-functions
-			ZSH_COMP_FALLBACK=/usr/share/zsh/site-functions
+			ZSH_DIR="$(zsh -c '
+                . /etc/zsh/zshrc &>/dev/null
+                echo $ZSH'
+            )"
+			SYSTEM_FPATH="$( export CHAR_NL CHAR_SPCE; zsh -c '
+                . /etc/zsh/zshrc &>/dev/null
+                echo "$fpath" | tr $CHAR_SPCE $CHAR_NL'
+            )"
 
-			SYSTEM_WIDE_FPATH="$(zsh -c '. /etc/zshrc &>/dev/null; echo "$fpath"')"
-			if [ -n "$SYSTEM_WIDE_FPATH" ]; then
-				if [ -d "$ZSH_COMP_DEFAULT" ]; then
-					ZSH_COMP_DIR="$ZSH_COMP_DEFAULT"
-				elif [ -d "$ZSH_COMP_FALLBACK" ]; then
-					ZSH_COMP_DIR="$ZSH_COMP_DEFAULT"
-				fi
-			fi
+            ZSH_COMP_DEFAULT=/usr/local/share/zsh/site-functions
+            ZSH_COMP_FALLBACK=/usr/share/zsh/site-functions
+            ZSH_DIR_COMPS="$(printf '%s/completions' "$ZSH_DIR")"
+            ZSH_DIR_CUSTOM="$(printf '%s/custom' "$ZSH_DIR")"
+
+            case "$SYSTEM_FPATH" in
+              *$ZSH_DIR_COMPS*) 
+                if ! echo "$ZSH_DIR" | grep -q "^$HOME"; then
+                  PROVII_ZSH_COMP="$ZSH_DIR_COMPS"
+                fi
+                ;;
+              *$ZSH_DIR_CUSTOM*) 
+                if ! echo "$ZSH_DIR" | grep -q "^$HOME"; then
+                  PROVII_ZSH_COMP="$ZSH_DIR_CUSTOM"
+                fi
+                ;;
+              *$ZSH_COMP_DEFAULT*) PROVII_ZSH_COMP="$ZSH_DIR_DEFAULT" ;;
+              *) PROVII_ZSH_COMP="$ZSH_DIR_FALLBACK" ;;
+            esac
 			;;
+
 		user)
-			ZSH_COMP_DEFAULT="$(
-				zsh -c '
-				if [ -f /etc/zshrc ]; then
-					. /etc/zshrc &>/dev/null
-				fi
-				if [ -f "$HOME/.zshrc" ]; then
-					. "$HOME/.zshrc" &>/dev/null
-				fi
+			USER_FPATH="$(export CHAR_NL CHAR_SPCE; zsh -c '
+              . /etc/zsh/zshrc &>/dev/null
+              . ${ZDOTDIR:-$HOME}/.zshrc &>/dev/null
+              echo "$fpath" | tr $CHAR_SPCE $CHAR_NL | grep -m1 ^$HOME'
+            )"
+			ZDOTDIR="$( zsh -c '
+              . /etc/zsh/zshrc &>/dev/null
+              . ${ZDOTDIR:-$HOME}/.zshrc &>/dev/null
+              echo ${ZDOTDIR:-$HOME}'
+            )"
 
-				if [ -n "$ZSH" ] && [ -d "$ZSH/completions" ]; then
-					if [ -d "$ZSH/completions" ]; then
-						RE="$(
-							printf "(?:^|[[:space:]])%s(?:\$|[[:space:]])" \
-								"$ZSH/completions"
-						)"
-						if echo "$fpath" | grep -Eq "$RE"; then
-							echo $ZSH/completions && exit
-						fi
-					elif [ -n "$ZSH_CUSTOM" ] && [ -d "$ZSH_CUSTOM" ]; then
-						echo $ZSH_CUSTOM && exit
-					else
-						RE="$(
-							printf "(?:^|[[:space:]])%s[^ ]+/%s(?:\$|[[:space:]])" \
-								"$HOME" "completions"
-						)"
-						if echo "$fpath" | grep -Eq "$RE"; then
-							echo "$fpath" | grep -Eo "$RE" && exit
-						fi
+            # leave without setting PROVII_ZSH_COMP if no dirs
+            # in fpath located in user's home directory
+			if [ -z "$USER_FPATH" ]; then
+              return 0
+            fi
 
-						FALLBACK="$(
-							echo "$fpath" \
-								| grep -Eo "$(printf "(?:^| )%s[^ ]+(?:\$| )" "$HOME")" \
-								| tail -1
-						)"
-						[ -z "$FALLBACK" ] && exit 1
+            ZDOTDIR_COMPS="$(printf '%s/completions' "$ZDOTDIR")"
+            ZDOTDIR_CUSTOM="$(printf '%s/custom' "$ZDOTDIR")"
+            ZSH_COMP_DEFAULT="$(echo "$USER_FPATH" | grep -m1 "^$HOME")"
 
-						echo "$FALLBACK"
-					fi
-				fi'
-			)"
-			if [ -n "$ZSH_COMP_DEFAULT" ]; then
-				PROVII_ZSH_COMP="$ZSH_COMP_DEFAULT"
-			fi
+            case "$SYSTEM_FPATH" in
+              *$ZDOTDIR_COMPS*) PROVII_ZSH_COMP="$ZDOTDIR_COMPS" ;;
+              *$ZDOTDIR_CUSTOM*) PROVII_ZSH_COMP="$ZDOTDIR_CUSTOM" ;;
+              *) PROVII_ZSH_COMP="$ZSH_COMP_DEFAULT" ;;
+            esac
 			;;
 		esac
-	fi
+
+        ${PROVII_ZSH_COMP:+`create_dir "$PROVII_ZSH_COMP"`}
+  fi
 }
 
 set_provii_libc() {
@@ -513,21 +545,24 @@ set_provii_libc() {
 	fi
 }
 
+# see, https://en.wikipedia.org/wiki/Uname#Examples
 set_provii_os() {
-	# see, https://en.wikipedia.org/wiki/Uname#Examples
-	PROVII_OS="${PROVII_OS:-"$(uname -s | tr "[:upper:]" "[:lower:]")"}"
+    [ -z "$PROVII_OS" ] && {
+      PROVII_OS="$(uname -s | tr "[A-Z]" "[a-z]")"
+    }
 }
 
 set_provii_arch() {
-	PROVII_ARCH="${PROVII_ARCH:-"$(uname -m | tr "[:upper:]" "[:lower:]")"}"
+    [ -z "$PROVII_ARCH" ] && {
+      PROVII_ARCH="$(uname -m | tr "[A-Z]" "[a-z]")"
+    }
 }
 
 set_provii_scope() {
-	if [ "$(id -u)" -eq "0" ]; then
-		PROVII_SCOPE=system
-	else
-		PROVII_SCOPE=user
-	fi
+    case "$(id -u)" in
+      0) PROVII_SCOPE=system ;;
+      *) PROVII_SCOPE=user ;;
+    esac
 }
 
 get_installer() {
@@ -624,7 +659,7 @@ ls_installers() {
 		"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}")"
 	JQ_QUERY='.[] | [ .name, .download_url ] | @csv'
 
-	for line in $(curl -sSL "$GITHUB_QUERY_LS" | jq -r "$JQ_QUERY" | tr -d '"'); do
+	for line in $(curl -sSL "$GITHUB_QUERY_LS" | jq -r "$JQ_QUERY" | tr -d \"); do
 		(
 			APP="${line%,*}"
 			curl -sSL "${line#*,}" |
@@ -895,15 +930,26 @@ log() {
 	true
 }
 
+_WARNING_PREFIX='Warning: '
+_WARNING_PREFIX_SPACER="$(printf '%*s' "$(printf %s "$_WARNING_PREFIX" | wc -c)" ' ')"
 warn() {
-	echo "warn:" "$@"
+  if [ "$1" = '-p' ]; then
+    shift; PRESS_ENTER_TO_CONTINUE=1
+  fi
+
+  printf "\n%s%s" "$_WARNING_PREFIX" "$*" | fmt -w "${_TABLE_WIDTH:-100}" | sed "s/$_WARNING_PREFIX/$(style WARNING "$_WARNING_PREFIX")/"
+
+  if [ "$PRESS_ENTER_TO_CONTINUE" ]; then
+    unset PRESS_ENTER_TO_CONTINUE
+    read RESPONSE
+  fi
 }
 
 _ERROR_PREFIX='Error: '
 _ERROR_SPACER="$(printf '%*s' "$(printf %s "$_ERROR_PREFIX" | wc -c)" ' ')"
 export _ERROR_PREFIX _ERROR_SPACER
 err() {
-	printf "\n%s%s" "${STYLE_ERROR}$_ERROR_PREFIX${STYLE_RESET}" "$*" | fmt -w 80
+	printf "\n%s%s" "$(style ERROR "$_ERROR_PREFIX")" "$*" | fmt -w 80
 	exit 1
 }
 
@@ -924,7 +970,8 @@ EOF
 fn_warn="$(
 	cat <<'EOF'
 BASH_FUNC_warn%%=() {
-echo "Warning:" "$@"
+  printf "\n%s%s" "$(style WARNING $_WARNING_PREFIX)" "$*" | fmt -w 80
+  read RESPONSE
 }
 EOF
 )"
@@ -932,7 +979,7 @@ EOF
 fn_err="$(
 	cat <<'EOF'
 BASH_FUNC_err%%=() {
-	printf "\n%s%s" "${STYLE_ERROR}$_ERROR_PREFIX${STYLE_RESET}" "$*" | fmt -w 80
+	printf "\n%s%s" "$(style ERROR $_ERROR_PREFIX)" "$*" | fmt -w 80
 exit 1
 }
 EOF
@@ -1009,6 +1056,11 @@ gather_facts() {
 }
 
 run_installer() {
+    if ! has_cmd strace; then
+      warn command strace not found. provii will not be able to create log \
+        of files created during installations. Install strace to enable logging.
+    fi
+    
 	/usr/bin/env -C "$PROVII_CACHE${INSTALLER:+/$INSTALLER}" - \
 		${INSTALLER:+NAME="$INSTALLER"} \
 		SCOPE="$PROVII_SCOPE" \
@@ -1047,7 +1099,7 @@ run_installer() {
 	STRACE_RE='^.*(([[:digit:]]{2}:?){3}).*[[:digit:]]<(.*)>'
 	DATE="$(date --iso-8601)"
 	TEMP_LOG="$(mktemp -p "$PROVII_CACHE")"
-
+    
 	strace -p "$PID" -fytze trace=open,creat,openat 2>&1 |
 		grep -E 'O_CREAT|O_TRUNC' |
 		grep -v 'O_APPEND' |
@@ -1071,6 +1123,7 @@ run_installer() {
 		}' \
 		"$TEMP_LOG" "$PROVII_LOG" >"$PROVII_LOG.new"
 	mv "$PROVII_LOG.new" "$PROVII_LOG"
+    cat $TEMP_LOG
 }
 
 if has_cmd jq; then
