@@ -14,8 +14,8 @@ install bvi
 install bmore
 
 if [ $MAN ]; then
-	cp bvi.man $MAN/man1/
-	cp bmore.man $MAN/man1/
+	cp bvi.man $MAN/man1
+	cp bmore.man $MAN/man1
 fi
 
 
