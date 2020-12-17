@@ -6,7 +6,7 @@
 github junegunn/fzf-bin "$NAME.*$OS.*$ARCH"
 tar -xf ./*
 
-install fzf
+install fzf $BIN/
 
 if [ $MAN ]; then
 	github junegunn/fzf/man/man1/fzf.1

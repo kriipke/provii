@@ -5,4 +5,4 @@
 # https://l0xy.sh/code/tagger
 
 github l0xy/tagger/tag
-install tag
+install tag $BIN/

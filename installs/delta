@@ -6,4 +6,4 @@
 github dandavison/delta "$ARCH.*$OS.*$LIBC.*gz"
 tar -xf ./* --strip=1
 
-install delta
+install delta $BIN/

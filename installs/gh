@@ -6,7 +6,7 @@
 github cli/cli "$OS.*$ARCH.*gz$"
 tar -xf ./* --strip=1
 
-install bin/gh
+install bin/gh $BIN/
 
 if [ $MAN ]; then
 	cp share/man/man1/* $MAN/man1/

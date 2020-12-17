@@ -4,7 +4,8 @@
 # https://github.com/smxi/inxi
 
 github smxi/inxi
-install inxi
+
+install inxi $BIN/
 
 if [ "$MAN" ]; then
 	cp inxi.1 "$MAN/"

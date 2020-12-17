@@ -6,7 +6,7 @@
 github Peltoche/lsd "$NAME.*$ARCH.*$OS.*$LIBC.*gz$"
 tar -xf ./* --strip=1 
 
-install lsd
+install lsd $BIN/
 
 if [ $BASH_COMP ]; then
 	cp autocomplete/lsd.bash-completion $BASH_COMP/

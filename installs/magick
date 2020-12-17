@@ -10,4 +10,4 @@ URL_FILE='magick'
 URL=$(printf 'https://%s/%s/%s' $URL_{FQDN,DIRS,FILE})
 curl -#O $URL
 
-install magick
+install magick $BIN/

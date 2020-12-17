@@ -6,4 +6,4 @@
 github bootandy/dust "$NAME.*$ARCH.*$OS.*$LIBC" 
 tar -xf ./* --strip=1
 
-install dust
+install dust $BIN/

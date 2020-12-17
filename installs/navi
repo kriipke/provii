@@ -6,4 +6,4 @@
 github denisidoro/navi "$ARCH.*$OS" 
 tar -xf ./*
 
-install navi
+install navi $BIN/
