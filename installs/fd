@@ -6,7 +6,7 @@
 github sharkdp/fd "$ARCH.*$OS.*$LIBC.*gz$"
 tar -xf ./* --strip=1 
 
-install fd
+install fd $BIN/
 
 if [ $MAN ]; then
 	cp fd.1 $MAN/man1/fd.1

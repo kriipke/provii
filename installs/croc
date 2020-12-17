@@ -5,6 +5,5 @@
 
 github schollz/croc "$OS-$ARCH.tar.gz"
 tar xf ./* croc
+
 install croc $BIN/
-
-

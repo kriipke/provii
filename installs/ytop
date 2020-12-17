@@ -6,4 +6,4 @@
 github cjbassi/ytop "$NAME.*$ARCH.*$OS"
 tar -xf ./*
 
-install ytop
+install ytop $BIN/

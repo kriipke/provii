@@ -6,4 +6,4 @@
 github wagoodman/dive "$OS.*$ARCH.*gz"
 tar -xf ./*
 
-install dive
+install dive $BIN/

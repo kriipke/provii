@@ -4,7 +4,8 @@
 # https://github.com/rupa/v
 
 github rupa/v 
-install v
+
+install v $BIN/
 
 if [ $MAN ]; then
 	cp v.1 $MAN/man1/

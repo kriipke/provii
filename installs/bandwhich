@@ -4,6 +4,6 @@
 # https://github.com/imsnif/bandwhich
 
 github imsnif/bandwhich "$NAME.*$ARCH.*$OS"
-tar -xf ./* 
+tar -xf ./*
 
-install bandwhich
+install bandwhich $BIN/

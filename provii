@@ -17,6 +17,7 @@ fi
 PROVII_BRANCH=master
 CLEAN_CACHE=1
 
+JQ_TARGET_DIR="$HOME/.local/bin"
 CHAR_NL=\\012
 CHAR_TAB=\\011
 CHAR_SPCE=\\040
@@ -122,6 +123,7 @@ prompt() {
 install_jq() {
 	JQ_VERSION="1.6"
 	JQ_URL="https://github.com/stedolan/jq/releases/download/jq-$JQ_VERSION"
+	JQ_TARGET_DIR="${JQ_TARGET_DIR:-$HOME/.local/bin}"
 
 	set_provii_os
 	set_provii_arch
@@ -143,7 +145,8 @@ install_jq() {
 	curl -sSLo "$JQ_TARGET_DIR/jq" "$JQ_URL/$JQ_FILE"
 	chmod ug+rx "$JQ_TARGET_DIR/jq"
 
-	JQ="$(command -v jq || "$JQ_TARGET_DIR/jq")"
+	JQ="$JQ_TARGET_DIR/jq"
+	export JQ
 
 	if [ -z "$JQ" ]; then
 		err 'Function install_jq failed to set $JQ to path of jq.'
@@ -622,14 +625,43 @@ get_installer_vars() {
 }
 
 show_installer_targets() {
-	_INSTALLER_VARS="$(get_installer_vars "$INSTALLER")"
+	_INSTALLER_VARS="$(get_installer_vars "$INSTALLER" | sort | uniq)"
+	
+	# TO-DO: iterate through "install" commands to display _multiple_ executables installed
+	# in the same way as the MAN pages to be installed are displayed below
 
-	target_exe="$(
-		printf "%s,%s/%s\n" \
-			"$(style VAR "EXECUTABLE")" \
-			"$PROVII_BIN" "$INSTALLER"
-	)"
+	SRC_DST=$(echo "$INSTALLATION_SCRIPT" \
+		| awk '/install.*\$BIN/ {printf "%s,%s\n", $2, substr($3,6)}')
 
+	target_exe=''
+	for line in $SRC_DST; do
+		SRC_FILE="$(echo "$line" | cut -d, -f1 | grep -Eo '[^/]+$')"
+		DST_FILE="$(echo "$line" | cut -d, -f2 | grep -Eo '[^/]+$')"
+		
+		output_line="$(
+			printf "%s,%s/%s" "$(style VAR "EXECUTABLE")" \
+				"$PROVII_BIN" "${DST_FILE:-$SRC_FILE}"
+		)"
+		target_exe="$(printf '%s\n%s' "$target_exe" "$output_line")"
+	done
+
+	if [ "$PROVII_MAN" ] && echo "$_INSTALLER_VARS" | grep -q '$MAN'; then
+		SRC_DST=$(echo "$INSTALLATION_SCRIPT" \
+			| awk '/cp.*\$MAN/ {printf "%s,%s\n", $2, substr($3,6)}')
+
+		target_man=''
+		for line in $SRC_DST; do
+			SRC_FILE="$(echo "$line" | cut -d, -f1 | grep -Eo '[^/]+$')"
+			DST_FILE="$(echo "$line" | cut -d, -f2 | grep -Eo '[^/]+$')"
+			DST_DIR="$(echo "$line" | cut -d, -f2 | grep -Eo '^[^/]+')"
+			
+			output_line="$(
+				printf "%s,%s/%s/%s" "$(style VAR "MAN PAGE")" \
+					"$PROVII_MAN" "$DST_DIR" "${DST_FILE:-$SRC_FILE}"
+			)"
+			target_man="$(printf '%s\n%s' "$target_man" "$output_line")"
+		done
+	fi
 	if [ "$PROVII_BASH_COMP" ]; then
 		if echo "$_INSTALLER_VARS" | grep -q '$BASH_COMP'; then
 			target_bash_comp="$(
@@ -646,29 +678,14 @@ show_installer_targets() {
 			)"
 		fi
 	fi
-	if [ "$PROVII_MAN" ]; then
-		if echo "$_INSTALLER_VARS" | grep -q '$MAN'; then
-			_MAN_SUBDIR="$(
-				echo "$INSTALLATION_SCRIPT" |
-					sed -En 's#^.*\$MAN(\")?/(man[0-9]).*$#\2#p'
-			)"
-			target_man="$(
-				printf "%s,%s/%s/%s.%s\n" "$(style VAR "MAN PAGE")" \
-					"$PROVII_MAN" "$_MAN_SUBDIR" "$INSTALLER" "${_MAN_SUBDIR#man}"
-			)"
-		fi
-	fi
 
 	OLD_IFS="$IFS"
 	export IFS='
 	'
 
 	target_dirs="$(
-		printf '\n%s' \
-			"${target_exe:+$target_exe}" \
-			"${target_man:+$target_man}" \
-			"${target_zsh_comp:+$target_zsh_comp}" \
-			"${target_bash_comp:+$target_bash_comp}"
+		printf '\n%s' "$target_exe" "$target_man" \
+			"$target_zsh_comp" "$target_bash_comp"
 	)"
 
 	_TABLE_WIDTH=0
@@ -724,18 +741,6 @@ ls_installers() {
 	wait
 	exit
 }
-
-fn_install=$(
-	cat <<'EOF'
-BASH_FUNC_install%%=() {
-if [ $# -eq 1 ]; then
-		command install "$1" "$BIN/"
-else
-	command install "$@"
-fi
-}
-EOF
-)
 
 fn___dl_github_tarball=$(
 	cat <<'EOF'
@@ -919,8 +924,7 @@ fn_github=$(
 	cat <<'EOF'
 BASH_FUNC_github%%=() {
 local REPO BRANCH PATH_TO_FILE ASSET_RE
-JQ="$( command -v jq || "$HOME/.local/bin/jq" )"
-export JQ
+JQ="$( command -v jq || echo "$JQ_DEFAULT_DIR/jq" )"
 
 PATH_TO_FILE=$(echo "$1" | cut -d/ -f3-)
 REPO=$(echo "$1" | cut -d/ -f-2)
@@ -1106,11 +1110,11 @@ run_installer() {
 		_ERROR_SPACER="$_ERROR_SPACER" \
 		STYLE_VARS="$STYLE_VARS" \
 		STYLE_HEADER="$STYLE_HEADER" \
+		JQ_DEFAULT_DIR="$JQ_TARGET_DIR" \
 		"$fn_github" \
 		"$fn___dl_github_asset" \
 		"$fn___dl_github_file__" \
 		"$fn___dl_github_tarball" \
-		"$fn_install" \
 		"$fn_log" \
 		"$fn_warn" \
 		"$fn_err" \
@@ -1147,10 +1151,12 @@ run_installer() {
 }
 
 if has_cmd jq; then
-	JQ="$(command -v jq)"
+	JQ="$(command -v jq || echo "$JQ_TARGET_DIR/jq" )"
 else
 	install_jq
 fi
+
+# TO-DO: install unzip binary if needed https://oss.oracle.com/el4/unzip/unzip.tar
 
 if [ "$(basename "$0")" != 'provii' ]; then
 	INSTALLER="$(basename "$0")"

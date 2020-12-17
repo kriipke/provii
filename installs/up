@@ -5,4 +5,4 @@
 # https://github.com/akavel/up
 
 github akavel/up "^$NAME$"
-install up
+install up $BIN/

@@ -6,5 +6,4 @@
 github xo/usql "$NAME.*$OS.*$ARCH"
 tar -xjf ./* usql
 
-install usql
-
+install usql $BIN/

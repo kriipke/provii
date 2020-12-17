@@ -6,7 +6,7 @@
 github BurntSushi/ripgrep "$ARCH.*$OS"
 tar -xzf ./* --strip=1
 
-install rg
+install rg $BIN/
 
 if [ $MAN ]; then
 	cp doc/rg.1 $MAN/man1/ 

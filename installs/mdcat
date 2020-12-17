@@ -6,7 +6,7 @@
 github lunaryorn/mdcat "$NAME.*$OS"
 tar -xf ./* --strip=1
 
-install mdcat
+install mdcat $BIN/
 ln $BIN/mdcat $BIN/mdless 2>/dev/null
 
 if [ $BASH_COMP ]; then

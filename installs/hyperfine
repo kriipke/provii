@@ -6,7 +6,7 @@
 github sharkdp/bat "$ARCH.*$OS.*$LIBC.*gz"
 tar -xf ./* --strip=1
 
-install hyperfine
+install hyperfine $BIN/
 
 if [ $MAN ]; then
 	cp hyperfine.1 $MAN/man1

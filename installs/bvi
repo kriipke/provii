@@ -10,12 +10,14 @@ URL_FILE='bvi-1.3.1-linux_static_elf.tar.gz'
 URL=$(printf 'https://%s/%s/%s' $URL_{FQDN,DIRS,FILE})
 curl -#L $URL | tar -xzf - --strip=1
 
-install bvi
-install bmore
+install bvi $BIN/
 
 if [ $MAN ]; then
 	cp bvi.man $MAN/man1/bvi.1
-	cp bmore.man $MAN/man1/bmore.1
 fi
 
+install bmore $BIN/
 
+if [ $MAN ]; then
+	cp bvi.man $MAN/man1/bvi.1
+fi

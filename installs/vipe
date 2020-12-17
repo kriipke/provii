@@ -4,4 +4,4 @@
 # https://itenet.net/~joey/code/moreutils/
 
 github madx/moreutils/vipe
-install vipe
+install vipe $BIN/

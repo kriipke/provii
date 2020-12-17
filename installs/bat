@@ -6,7 +6,7 @@
 github sharkdp/bat "$ARCH.*$OS.*$LIBC.*gz"
 tar -xf ./* --strip=1
 
-install bat
+install bat $BIN/
 
 if [ $MAN ]; then
 	cp bat.1 $MAN/man1

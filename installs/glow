@@ -6,4 +6,4 @@
 github charmbracelet/glow "$OS.*$ARCH.*gz$"
 tar -xf ./*
 
-install glow
+install glow $BIN/
