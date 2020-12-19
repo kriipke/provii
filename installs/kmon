@@ -3,7 +3,7 @@
 # linux kernel manager and activity monitor
 # https://kmon.cli.rs/
 
-github orhun/kmon "$NAME.*gz$"
+github orhun/kmon "$NAME.*$LIBC.*gz$"
 tar -xf ./*
 
 install kmon
