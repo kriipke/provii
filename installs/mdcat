@@ -6,8 +6,8 @@
 github lunaryorn/mdcat "$NAME.*$OS"
 tar -xf ./* --strip=1
 
-install mdcat $BIN/
-ln $BIN/mdcat $BIN/mdless 2>/dev/null
+install mdcat $BIN/mdcat
+install mdcat $BIN/mdless
 
 if [ $BASH_COMP ]; then
 	cp completions/mdcat.bash $BASH_COMP/mdcat.bash-completion
