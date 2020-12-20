@@ -6,7 +6,7 @@
 github orhun/kmon "$NAME.*$LIBC.*gz$"
 tar -xf ./*
 
-install kmon
+install kmon $BIN/
 
 if [ $MAN ]; then
 	cp man/kmon.8 $MAN/man8/
