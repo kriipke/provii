@@ -439,70 +439,6 @@ done' "$PROVII_BASH_COMP" >>"$PROVII_BASH_CONFIG"
 	esac
 }
 
-# set_provii_zsh_comp() {
-# 	if has_cmd zsh; then
-# 		case "${PROVII_SCOPE:?}" in
-# 		system)
-# 			ZSH_COMP_DEFAULT=/usr/local/share/zsh/site-functions
-# 			ZSH_COMP_FALLBACK=/usr/share/zsh/site-functions
-# 
-# 			SYSTEM_WIDE_FPATH="$(zsh -c '. /etc/zshrc &>/dev/null; echo "$fpath"')"
-# 			if [ -n "$SYSTEM_WIDE_FPATH" ]; then
-# 				if [ -d "$ZSH_COMP_DEFAULT" ]; then
-# 					ZSH_COMP_DIR="$ZSH_COMP_DEFAULT"
-# 				elif [ -d "$ZSH_COMP_FALLBACK" ]; then
-# 					ZSH_COMP_DIR="$ZSH_COMP_DEFAULT"
-# 				fi
-# 			fi
-# 			;;
-# 		user)
-# 			ZSH_COMP_DEFAULT="$(
-# 				zsh -c '
-# 				if [ -f /etc/zshrc ]; then
-# 					. /etc/zshrc &>/dev/null
-# 				fi
-# 				if [ -f "$HOME/.zshrc" ]; then
-# 					. "$HOME/.zshrc" &>/dev/null
-# 				fi
-# 
-# 				if [ -n "$ZSH" ] && [ -d "$ZSH/completions" ]; then
-# 					if [ -d "$ZSH/completions" ]; then
-# 						RE="$(
-# 							printf "(?:^|[[:space:]])%s(?:\$|[[:space:]])" \
-# 								"$ZSH/completions"
-# 						)"
-# 						if echo "$fpath" | grep -Eq "$RE"; then
-# 							echo $ZSH/completions && exit
-# 						fi
-# 					elif [ -n "$ZSH_CUSTOM" ] && [ -d "$ZSH_CUSTOM" ]; then
-# 						echo $ZSH_CUSTOM && exit
-# 					else
-# 						RE="$(
-# 							printf "(?:^|[[:space:]])%s[^ ]+/%s(?:\$|[[:space:]])" \
-# 								"$HOME" "completions"
-# 						)"
-# 						if echo "$fpath" | grep -Eq "$RE"; then
-# 							echo "$fpath" | grep -Eo "$RE" && exit
-# 						fi
-# 
-# 						FALLBACK="$(
-# 							echo "$fpath" \
-# 								| grep -Eo "$(printf "(?:^| )%s[^ ]+(?:\$| )" "$HOME")" \
-# 								| tail -1
-# 						)"
-# 						[ -z "$FALLBACK" ] && exit 1
-# 
-# 						echo "$FALLBACK"
-# 					fi
-# 				fi'
-# 			)"
-# 			if [ -n "$ZSH_COMP_DEFAULT" ]; then
-# 				PROVII_ZSH_COMP="$ZSH_COMP_DEFAULT"
-# 			fi
-# 			;;
-# 		esac
-# 	fi
-# }
 
 set_provii_zsh_comp() {
 	if has_cmd zsh; then
@@ -607,12 +543,14 @@ set_provii_scope() {
 }
 
 get_installer() {
-	GITHUB_QUERY="$(printf 'https://api.github.com%s%s' \
-		"/repos/l0xy/provii/contents/installs/$INSTALLER" \
-		"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}")"
-	curl -sSL "$GITHUB_QUERY" |
-		"$JQ" '.download_url' |
-		xargs curl -sSL
+	GITHUB_API_QUERY="$(
+		printf 'https://api.github.com%s%s' \
+			"/repos/l0xy/provii/contents/installs/$INSTALLER" \
+			"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}"
+	)"
+	curl -sSL "$GITHUB_API_QUERY" \
+		| "$JQ" '.download_url' \
+		| xargs curl -sSL
 }
 
 # TO-DO: account for the fact that $BIN is not referenced when using install fn
@@ -631,12 +569,15 @@ show_installer_targets() {
 	# in the same way as the MAN pages to be installed are displayed below
 
 	SRC_DST=$(echo "$INSTALLATION_SCRIPT" \
-		| awk '/install.*\$BIN/ {printf "%s,%s\n", $2, substr($3,6)}')
+		| awk -e '/install.*\$BIN/ {printf "%s,%s\n", $2, gsub(/"|(\$BIN)/,"",$0)}')
 
+	echo "$SRC_DST"
 	target_exe=''
 	for line in $SRC_DST; do
-		SRC_FILE="$(echo "$line" | cut -d, -f1 | grep -Eo '[^/]+$')"
-		DST_FILE="$(echo "$line" | cut -d, -f2 | grep -Eo '[^/]+$')"
+		SRC_PATH="${line%*,}"
+		DST_PATH="${line#,*}"
+		SRC_FILE="${SRC_PATH##*/}"
+		DST_FILE="${DST_PATH##*/}"
 		
 		output_line="$(
 			printf "%s,%s/%s" "$(style VAR "EXECUTABLE")" \
@@ -647,13 +588,15 @@ show_installer_targets() {
 
 	if [ "$PROVII_MAN" ] && echo "$_INSTALLER_VARS" | grep -q '$MAN'; then
 		SRC_DST=$(echo "$INSTALLATION_SCRIPT" \
-			| awk '/cp.*\$MAN/ {printf "%s,%s\n", $2, substr($3,6)}')
+			| awk -e '/cp.*\$MAN/ {printf "%s,%s\n", $2, gsub(/"|(\$MAN)/,"",$0)}')
 
+		echo "$SRC_DEST"
 		target_man=''
 		for line in $SRC_DST; do
-			SRC_FILE="$(echo "$line" | cut -d, -f1 | grep -Eo '[^/]+$')"
-			DST_FILE="$(echo "$line" | cut -d, -f2 | grep -Eo '[^/]+$')"
-			DST_DIR="$(echo "$line" | cut -d, -f2 | grep -Eo '^[^/]+')"
+			SRC_PATH="${line%,*}"
+			DST_PATH="${line#*,}"
+			SRC_FILE="${SRC_PATH##*/}"
+			DST_FILE="${SRC_PATH##*/}"
 			
 			output_line="$(
 				printf "%s,%s/%s/%s" "$(style VAR "MAN PAGE")" \
@@ -714,7 +657,7 @@ ls_installers() {
 		"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}")"
 	JQ_QUERY='.[] | [ .name, .download_url ] | @csv'
 
-	for line in $(curl -sSL "$GITHUB_QUERY_LS" | jq -r "$JQ_QUERY" | tr -d '"'); do
+	for line in $(curl -sSL "$GITHUB_QUERY_LS" | "$JQ" -r "$JQ_QUERY" | tr -d '"'); do
 		(
 			APP="${line%,*}"
 			curl -sSL "${line#*,}" |
@@ -1151,9 +1094,12 @@ run_installer() {
 }
 
 if has_cmd jq; then
-	JQ="$(command -v jq || echo "$JQ_TARGET_DIR/jq" )"
+	JQ="$(command -v jq)"
+elif test -f "$JQ_TARGET_DIR/jq"; then
+	JQ="$JQ_TARGET_DIR/jq"
 else
 	install_jq
+	JQ="$JQ_TARGET_DIR/jq"
 fi
 
 # TO-DO: install unzip binary if needed https://oss.oracle.com/el4/unzip/unzip.tar
