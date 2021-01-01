@@ -4,7 +4,7 @@
 # https://kmon.cli.rs/
 
 github orhun/kmon "$NAME.*$LIBC.*gz$"
-tar -xf ./*
+tar --strip=1 -xf ./*
 
 install kmon $BIN/
 
