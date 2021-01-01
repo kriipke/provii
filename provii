@@ -369,24 +369,23 @@ set_provii_man() {
 				# else, add MAN_DIR_PREFERRED to manpath
 				PROVII_MAN="${XDG_DATA_HOME:-$HOME/.local/share}/man"
 				echo "MANDATORY_MANPATH $PROVII_MAN" >"$HOME/.manpath"
-				create_dir "$PROVII_MAN"/man1
-				create_dir "$PROVII_MAN"/man5
-				create_dir "$PROVII_MAN"/man8
 			fi
 		else
 			if has_package man-db; then
 				# else, add MAN_DIR_PREFERRED to manpath
 				PROVII_MAN="${XDG_DATA_HOME:-$HOME/.local/share}/man"
 				echo "MANDATORY_MANPATH $PROVII_MAN" >"$HOME/.manpath"
-				create_dir "$PROVII_MAN"/man1
-				create_dir "$PROVII_MAN"/man5
-				create_dir "$PROVII_MAN"/man8
 			else
 				warn 'Package not installed: man-db. Failed to set $BASH_COMP variable.'
 			fi
 		fi
 		;;
 	esac
+	if [ -n "$PROVII_MAN" ]; then
+		create_dir "$PROVII_MAN"/man1
+		create_dir "$PROVII_MAN"/man5
+		create_dir "$PROVII_MAN"/man8
+	fi
 }
 
 set_provii_bash_comp() {
@@ -559,19 +558,16 @@ get_installer_vars() {
 		"Installation script has not been downloaded yet"
 
 	VARS_RE="$(printf %s "$PROVII_VARS" | sed -E 's/(\\[(|])/\1$/g')"
-	printf '\n%s' "$(echo "$INSTALLATION_SCRIPT" | grep -o "$VARS_RE")"
+	printf '\n%s' "$(echo "$INSTALLATION_SCRIPT" | grep -o "$VARS_RE")" \
+		| sort | uniq
 }
 
 show_installer_targets() {
-	_INSTALLER_VARS="$(get_installer_vars "$INSTALLER" | sort | uniq)"
+	_INSTALLER_VARS="$(get_installer_vars "$INSTALLER")"
 	
-	# TO-DO: iterate through "install" commands to display _multiple_ executables installed
-	# in the same way as the MAN pages to be installed are displayed below
-
 	SRC_DST=$(echo "$INSTALLATION_SCRIPT" \
-		| awk -e '/install.*\$BIN/ {printf "%s,%s\n", $2, gsub(/"|(\$BIN)/,"",$0)}')
+		| awk -e '/install.*\$BIN/ {printf "%s,%s\n", $2, gensub(/^.*"?\$BIN\/?(.*)$/,"\1","g")}')
 
-	echo "$SRC_DST"
 	target_exe=''
 	for line in $SRC_DST; do
 		SRC_PATH="${line%*,}"
@@ -588,19 +584,19 @@ show_installer_targets() {
 
 	if [ "$PROVII_MAN" ] && echo "$_INSTALLER_VARS" | grep -q '$MAN'; then
 		SRC_DST=$(echo "$INSTALLATION_SCRIPT" \
-			| awk -e '/cp.*\$MAN/ {printf "%s,%s\n", $2, gsub(/"|(\$MAN)/,"",$0)}')
+			| awk -e '/cp.*\$MAN/ {printf "%s,%s\n", $2, gensub(/^.*"?\$MAN\/?(.*)$/,"\1","g")}')
 
-		echo "$SRC_DEST"
 		target_man=''
 		for line in $SRC_DST; do
-			SRC_PATH="${line%,*}"
-			DST_PATH="${line#*,}"
+			SRC_PATH="${line%*,}"
 			SRC_FILE="${SRC_PATH##*/}"
-			DST_FILE="${SRC_PATH##*/}"
-			
+			DST_PATH="${line#,*}"
+			DST_FILE="${DST_PATH##*/}"
+
+			TARGET_FILE="${DST_FILE:-$SRC_FILE}"
 			output_line="$(
-				printf "%s,%s/%s/%s" "$(style VAR "MAN PAGE")" \
-					"$PROVII_MAN" "$DST_DIR" "${DST_FILE:-$SRC_FILE}"
+				printf "%s,%s/man%s/%s" "$(style VAR "MAN PAGE")" \
+					"$PROVII_MAN" "$(echo "${TARGET_FILE##*.}" | head -c1)" "$TARGET_FILE"
 			)"
 			target_man="$(printf '%s\n%s' "$target_man" "$output_line")"
 		done
@@ -642,6 +638,7 @@ show_installer_targets() {
 		printf '\n%s%%-%is\n\n%s' \
 			"${STYLE_HEADER}" "$_TABLE_WIDTH" "${STYLE_RESET}"
 	)"
+
 	printf "$header_fmt" "$INSTALLER"
 	printf %s\\n "$target_dirs" | column -t -s,
 

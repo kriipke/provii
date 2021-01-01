@@ -19,5 +19,5 @@ fi
 install bmore $BIN/
 
 if [ $MAN ]; then
-	cp bvi.man $MAN/man1/bvi.1
+	cp bmore.man $MAN/man1/bmore.1
 fi
