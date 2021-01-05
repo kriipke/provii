@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+# Installs provii so it can be used directly as a command.
+# https://l0xy.sh/code/provii
+
+github l0xy/provii/provii
+install provii $BIN/
