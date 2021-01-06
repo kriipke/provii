@@ -4,7 +4,7 @@ cleanup() {
 	if [ "$RESET_TABS" ]; then
 		tabs -8
 	fi
-	if [ "$CLEAN_CACHE" ] && [ "$PROVII_CACHE" ]; then
+	if [ "$CLEAN_CACHE_EXIT_ON" ] && [ "$PROVII_CACHE" ]; then
 		rm -rf $PROVII_CACHE || true
 	fi
 }
@@ -14,23 +14,49 @@ if command -v tabs >/dev/null 2>&1; then
 	trap 'cleanup' EXIT
 fi
 
+PROVII_REPO=l0xy/provii
 PROVII_BRANCH=master
-CLEAN_CACHE=1
+PROVII_VERSION='v0.1'
+CLEAN_CACHE_ON_EXIT=1
+#JQ_TARGET_DIR="$HOME/.local/bin"
 
-JQ_TARGET_DIR="$HOME/.local/bin"
 CHAR_NL=\\012
 CHAR_TAB=\\011
 CHAR_SPCE=\\040
+GH=https://api.github.com
 
 if [ "$DEBUG" ]; then
 	set -x
-	unset CLEAN_CACHE
+	unset CLEAN_CACHE_EXIT_ON
 	VERBOSE=1
 	PS4='${TAB}${MAGENTA}provii $LINENO ::${STYLE_RESET} '
 fi
 
 PROVII_VARS='\(OS\|SCOPE\|LIBC\|BASH_COMP\|ZSH_COMP\|MAN\|NAME\|CACHE\|ARCH\|BIN\|LOG\)'
 
+check_current_version() {
+	API_REQ=$GH/repos/l0xy/provii/tags
+	LATEST_VERSION="$( curl -s "$API_REQ" | jq -r '.[0].name' )"
+	THIS_SCRIPTS_DIRNAME="$(dirname "$0")"
+	case "$LATEST_VERSION" in
+		"$PROVII_VERSION")
+			true ;;
+		v*)
+			if [ -w "$THIS_SCRIPTS_DIRNAME" ]; then
+				printf '\nNew provii release found!\n\nPress Enter to install %s or CTRL-C to Cancel.\n' "$LATEST_VERSION"
+				read RESPONSE
+				printf 'Upgrading to %s...\n' "$LATEST_VERSION" 
+				PROVII_BIN="$THIS_SCRIPTS_DIRNAME" install provii
+			else
+				printf "\nNew provii release found!\n\nSadly you'll have to re-run provii with administrator privileges to upgrade to %s. Press Ctrl-C to exit or Enter to continue with the current version.\n" "$LATEST_VERSION"
+				read "$RESPONSE"
+			fi
+			;;
+		*)
+			echo "Update check failed! Failed to determine current provii release." ;;
+	esac
+}
+	
 if command -v tput >/dev/null 2>&1; then
 	TAB="$(tput ht 2>/dev/null || echo '')"
 	if [ $(($(tput colors 2>/dev/null))) -ge 8 ]; then
@@ -53,10 +79,10 @@ _help='
 provii - command line utility installer
 usage: 
        provii install [-vi] APPLICATION
-		 provii env [APPLICATION]
+       provii env APPLICATION
        provii cat APPLICATION
        provii ls
-       provii help [SUBCOMMAND]
+       provii help SUBCOMMAND
 
 OPTIONS:
 -h, --help          print this message
@@ -64,22 +90,8 @@ OPTIONS:
 -i, --interactive   confirm any changes to the system before they are made
 -v, --verbose       prints various information depending on subcommand'
 
-usage_error() {
-	echo "$(basename "$0")": ERROR: "$2" 1>&2
-	print_usage "$1" 1>&2
-	exit 1
-}
-
 print_usage() {
-	if [ "$#" -eq 0 ]; then
-		echo "$_help"
-	else
-		if [ -v "_help_$1" ]; then
-			eval echo "$(printf '"$_help_%s"' $1)"
-		else
-			print_usage
-		fi
-	fi
+	printf %s\\n\\n "$_help"
 	exit
 }
 
@@ -188,6 +200,9 @@ set_provii_cache() {
 }
 
 set_provii_bin() {
+	if [ "$PROVII_BIN" ]; then
+		return 0
+	fi
 	case "${PROVII_SCOPE:?}" in
 	system)
 		if [ -n "$PROVII_SYSTEM_BIN" ]; then
@@ -1090,6 +1105,14 @@ run_installer() {
 	mv "$PROVII_LOG.new" "$PROVII_LOG"
 }
 
+install() {
+	INSTALLER="${1:?}"
+	gather_facts
+	INSTALLATION_SCRIPT="$(get_installer)"
+	show_installer_targets
+	run_installer "$INSTALLATION_SCRIPT"
+}
+
 if has_cmd jq; then
 	JQ="$(command -v jq)"
 elif test -f "$JQ_TARGET_DIR/jq"; then
@@ -1110,15 +1133,22 @@ if [ "$(basename "$0")" != 'provii' ]; then
 	exit
 fi
 
+if [ "$#" -eq 0 ]; then
+	print_usage
+fi
+
+check_current_version
+
 cmd="$1"
 shift
+
 case "$cmd" in
 install)
 	while :; do
 		case "$1" in
 		-v) VERBOSE=1 ;;
 		-i) INTERACTIVE=1 ;;
-		-h) print_usage 'install' ;;
+		-h) print_usage ;;
 		-b)
 			shift
 			PROVII_BRANCH="$1"
@@ -1143,10 +1173,10 @@ install)
 log)
 	while :; do
 		case "$1" in
-		-h) print_usage 'log' ;;
-		-*) usage_error 'log' "bad argument $1" ;;
+		-h) print_usage ;;
+		-*) print_usage ;;
 		*)
-			[ $# -gt 1 ] && print_usage 'log'
+			[ $# -gt 1 ] && print_usage
 			break
 			;;
 		esac
@@ -1162,8 +1192,8 @@ log)
 ls)
 	while :; do
 		case "$1" in
-		-h) print_usage 'ls' ;;
-		-*) usage_error 'ls' "bad argument $1" ;;
+		-h) print_usage ;;
+		-*) print_usage ;;
 		*) break ;;
 		esac
 		shift
@@ -1173,8 +1203,8 @@ ls)
 env)
 	while :; do
 		case "$1" in
-		-h) print_usage 'env' ;;
-		-*) usage_error 'env' "bad argument $1" ;;
+		-h) print_usage ;;
+		-*) print_usage ;;
 		*) break ;;
 		esac
 		shift
@@ -1186,12 +1216,12 @@ env)
 cat)
 	while :; do
 		case "$1" in
-		-h) print_usage 'cat' ;;
+		-h) print_usage ;;
 		-b)
 			shift
 			PROVII_BRANCH="$1"
 			;;
-		-*) usage_error 'cat' "bad argument $1" ;;
+		-*) print_usage ;;
 		*) break ;;
 		esac
 		shift
@@ -1206,7 +1236,7 @@ cat)
 rm)
 	while :; do
 		case "$1" in
-		-h) print_usage 'rm' ;;
+		-h) print_usage ;;
 		-i) INTERACTIVE=1 ;;
 		-*) usage_error 'cat' "bad argument $1" ;;
 		*) break ;;
