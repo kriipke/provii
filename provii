@@ -16,7 +16,7 @@ fi
 
 PROVII_REPO=l0xy/provii
 PROVII_BRANCH=master
-PROVII_VERSION='v0.1'
+PROVII_VERSION='v0.2'
 CLEAN_CACHE_ON_EXIT=1
 #JQ_TARGET_DIR="$HOME/.local/bin"
 
@@ -36,7 +36,7 @@ PROVII_VARS='\(OS\|SCOPE\|LIBC\|BASH_COMP\|ZSH_COMP\|MAN\|NAME\|CACHE\|ARCH\|BIN
 
 check_current_version() {
 	API_REQ=$GH/repos/l0xy/provii/tags
-	LATEST_VERSION="$( curl -s "$API_REQ" | jq -r '.[0].name' )"
+	LATEST_VERSION="$( curl -s "$API_REQ" | $JQ -r '.[0].name' )"
 	THIS_SCRIPTS_DIRNAME="$(dirname "$0")"
 	case "$LATEST_VERSION" in
 		"$PROVII_VERSION")
@@ -49,7 +49,7 @@ check_current_version() {
 				PROVII_BIN="$THIS_SCRIPTS_DIRNAME" install provii
 			else
 				printf "\nNew provii release found!\n\nSadly you'll have to re-run provii with administrator privileges to upgrade to %s. Press Ctrl-C to exit or Enter to continue with the current version.\n" "$LATEST_VERSION"
-				read "$RESPONSE"
+				read RESPONSE
 			fi
 			;;
 		*)
