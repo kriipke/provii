@@ -14,7 +14,7 @@ if command -v tabs >/dev/null 2>&1; then
 	trap 'cleanup' EXIT
 fi
 
-PROVII_REPO=l0xy/provii
+PROVII_REPO=kriipke/provii
 PROVII_BRANCH=master
 PROVII_VERSION='v0.2'
 CLEAN_CACHE_ON_EXIT=1
@@ -35,7 +35,7 @@ fi
 PROVII_VARS='\(OS\|SCOPE\|LIBC\|BASH_COMP\|ZSH_COMP\|MAN\|NAME\|CACHE\|ARCH\|BIN\|LOG\)'
 
 check_current_version() {
-	API_REQ=$GH/repos/l0xy/provii/tags
+	API_REQ=$GH/repos/kriipke/provii/tags
 	LATEST_VERSION="$( curl -s "$API_REQ" | $JQ -r '.[0].name' )"
 	THIS_SCRIPTS_DIRNAME="$(dirname "$0")"
 	case "$LATEST_VERSION" in
@@ -559,7 +559,7 @@ set_provii_scope() {
 get_installer() {
 	GITHUB_API_QUERY="$(
 		printf 'https://api.github.com%s%s' \
-			"/repos/l0xy/provii/contents/installs/$INSTALLER" \
+			"/repos/kriipke/provii/contents/installs/$INSTALLER" \
 			"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}"
 	)"
 	curl -sSL "$GITHUB_API_QUERY" \
@@ -665,7 +665,7 @@ show_installer_targets() {
 
 ls_installers() {
 	GITHUB_QUERY_LS="$(printf \
-		"https://api.github.com/repos/l0xy/provii/contents/installs%s" \
+		"https://api.github.com/repos/kriipke/provii/contents/installs%s" \
 		"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}")"
 	JQ_QUERY='.[] | [ .name, .download_url ] | @csv'
 
