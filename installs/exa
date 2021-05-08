@@ -4,6 +4,19 @@
 # https://the.exa.website
 
 github ogham/exa "$NAME.*$OS.*$ARCH.*-musl"
-unzip ./* -d bin/ 1>/dev/null
+unzip ./* -d output/ 1>/dev/null
 
-install bin/exa* $BIN/exa
+install output/bin/exa* $BIN/exa
+
+if [ $BASH_COMP ]; then
+	cp completions/exa.bash $BASH_COMP/exa.bash-completions
+fi
+
+if [ $ZSH_COMP ]; then
+	cp autocomplete/exa.zsh $ZSH_COMP/_exa
+fi
+
+if [ $MAN ]; then
+	cp man/exa.1 $MAN/man1/
+  cp man/exa_colors.5 $MAN/man5/
+fi
