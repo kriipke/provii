@@ -3,7 +3,7 @@
 # a modern version of ls
 # https://the.exa.website
 
-github ogham/exa "$NAME.*$OS-\($LIBC\)?.*$ARCH"
+github ogham/exa "$NAME.*$OS.*$ARCH.*\($LIBC\)?"
 unzip ./* -d bin/ 1>/dev/null
 
 install bin/exa* $BIN/exa
