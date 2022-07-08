@@ -15,5 +15,5 @@ if [ $ZSH_COMP ]; then
 	cp autocomplete/_fd $ZSH_COMP/
 fi
 if [ $BASH_COMP ]; then
-	cp autocomplete/fd.bash-completion $BASH_COMP/
+	cp autocomplete/fd.bash $BASH_COMP/fd.bash-completion
 fi
