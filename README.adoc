@@ -2,7 +2,7 @@
 
 `provii` is a provisioning tool to painlessly download your favorite command-line utilities as pre-compiled binaries on a machine that that may be missing them. It is a convenient alternative when you do not have the premissions required to install software using the systems package manager or when you do not wish to install the software system-wide.
 
-The script itself is hosted both at https://l0xy.sh/provii and on link:https://raw.github.com/l0xy/provii/master/provii[Github]. Additionally, the list of installers available via `provii` can be found at link:https://github.com/l0xy/provii/tree/master/installs[here] (or listed using `provii` itself, see <<provii ls,`provii ls`>>)
+The script itself is hosted at link:https://raw.github.com/l0xy/provii/master/provii[]. Additionally, the list of installers available via `provii` can be found at link:https://github.com/l0xy/provii/tree/master/installs[here] (or listed using `provii` itself, see <<provii ls,`provii ls`>>)
 
 `provii` works by gathering the necessary information about the system its running on to install the pre-built binary (as well as man pages & shell completions if available), and then fetching & running the appropriate installion scripts hosted in provii's github repository in the link:https://github.com/l0xy/provii/tree/master/installs[installs directory].
 
@@ -32,7 +32,7 @@ If you would like to add your piece of software to the list of installers avalia
 The simplest way to use provii is to curl the script directly into bash. For example, to download the tool `fd`, you would simply run:
 
 [source,bash]
-bash -c "$( curl l0xy.sh/provii )" fd
+bash -c "$( curl https://raw.github.com/l0xy/provii/master/provii )" fd
 
 Once run, provii will print out the location to which the binary will be installed and print some information as the script runs. See <<provii install,`provii install`>> for output.
 
