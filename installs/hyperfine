@@ -12,7 +12,7 @@ if [ $MAN ]; then
 	cp hyperfine.1 $MAN/man1
 fi
 if [ $BASH_COMP ]; then
-	cp autocomplete/hyperfine.bash-completion $BASH_COMP/
+	cp autocomplete/hyperfine.bash $BASH_COMP/hyperfine.bash-completion
 fi
 if [ $ZSH_COMP ]; then
 	cp autocomplete/_hyperfine $ZSH_COMP/
