@@ -29,7 +29,7 @@ if [ "$DEBUG" ]; then
 	set -x
 	unset CLEAN_CACHE_EXIT_ON
 	VERBOSE=1
-	PS4='${TAB}${MAGENTA}provii $LINENO ::${STYLE_RESET} '
+	PS4='+ $(date "+%s.%N")\011 @line $LINENO\011'
 fi
 
 PROVII_VARS='\(OS\|SCOPE\|LIBC\|BASH_COMP\|ZSH_COMP\|MAN\|NAME\|CACHE\|ARCH\|BIN\|LOG\)'
