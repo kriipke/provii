@@ -1,7 +1,16 @@
 #!/bin/bash -eE
 
-is_sourced() {
-	(return 0 2>/dev/null) && SOURCED=1
+# Determines if the script was sourced or executed
+(return 0 2>/dev/null) && SOURCED=1
+
+if [[ ! "$SOURCED" ]]; then
+	echo "tootleeee"
+fi
+
+get_distro() {
+	if [[ -f /etc/os-release ]]; then
+		(unset ID && . /etc/os-release && echo $ID)
+	fi
 }
 
 cleanup() {
@@ -147,25 +156,19 @@ prompt() {
 install_jq() {
 	JQ_VERSION="1.6"
 	JQ_URL="https://github.com/stedolan/jq/releases/download/jq-$JQ_VERSION"
-	JQ_TARGET_DIR="${JQ_TARGET_DIR:-$HOME/.local/bin}"
 
 	set_provii_os
 	set_provii_arch
+	set_provii_bin
 
-	if [ "$PROVII_OS" = 'darwin' ]; then
-		JQ_FILE="jq-osx-amd64"
-	else
-		case "$PROVII_ARCH" in
-		x86_64 | amd64 | aarch64)
-			JQ_FILE="jq-linux64"
-			;;
-		i386 | i586 | i686)
-			JQ_FILE="jq-linux32"
-			;;
-		esac
-	fi
+	JQ_TARGET_DIR="${PROVII_BIN:-$HOME/.local/bin}"
 
-	[ -d "$JQ_TARGET_DIR" ] || create_dir "$JQ_TARGET_DIR"
+	case "$PROVII_ARCH" in
+	x86_64 | amd64 | aarch64) JQ_FILE="jq-linux64" ;;
+	i386 | i586 | i686) JQ_FILE="jq-linux32" ;;
+	esac
+
+	create_dir "$JQ_TARGET_DIR"
 	curl -sSLo "$JQ_TARGET_DIR/jq" "$JQ_URL/$JQ_FILE"
 	chmod ug+rx "$JQ_TARGET_DIR/jq"
 
@@ -296,14 +299,27 @@ has_package() {
 		err "Usage: has_package [--version] PACKAGE"
 	fi
 
-	if has_cmd rpm; then
+	if test -f /etc/apk/repositories && has_cmd apk; then
+		QUERYPKG_CMD_FMT='apk -e info %s'
+	elif test -d /etc/yum.repos.d/ && has_cmd rpm; then
 		QUERYPKG_CMD_FMT='rpm -qa --queryformat %s  name=%s'
-	elif has_cmd dpkg-query; then
+	elif [[ -d /etc/apt/sources.list.d || -f /etc/apt/sources.list ]] && has_cmd dpkg-query; then
 		QUERYPKG_CMD_FMT='dpkg-query --showformat=%s --show %s'
 	else
 		err "Function has_package failed to locate " \
-			"either (1) rpm or (2) dpkg-query commands."
+			"either (1) apk (2) rpm or (3) dpkg-query commands."
 	fi
+
+	# if has_cmd apk; then
+	# 	QUERYPKG_CMD_FMT='rpm -qa --queryformat %s  name=%s'
+	# elif has_cmd rpm; then
+	# 	QUERYPKG_CMD_FMT='rpm -qa --queryformat %s  name=%s'
+	# elif has_cmd dpkg-query; then
+	# 	QUERYPKG_CMD_FMT='dpkg-query --showformat=%s --show %s'
+	# else
+	# 	err "Function has_package failed to locate " \
+	# 		"either (1) rpm or (2) dpkg-query commands."
+	# fi
 
 	PACKAGE_VERSION="$($(printf "$QUERYPKG_CMD_FMT" '%{VERSION}\n' "$PACKAGE"))"
 	if [ -n "$PACKAGE_VERSION" ]; then
@@ -362,6 +378,7 @@ set_provii_man() {
 		MAN_DIR_PREFERRED="/usr/local/share/man"
 		MAN_DIR_ALT="/usr/share/man"
 
+		# test for man-db package
 		if has_cmd manpath; then
 			MANPATH_DIRS="$(manpath -g | tr : "$CHAR_NL")"
 			if echo "$MANPATH_DIRS" | grep -q "$MAN_DIR_PREFERRED"; then
@@ -371,11 +388,7 @@ set_provii_man() {
 			fi
 
 		else
-			if has_package 'man-db'; then
-				PROVII_MAN="$MAN_DIR_ALT"
-			else
-				warn 'Package not installed: man-db. Failed to set $BASH_COMP variable.'
-			fi
+			warn 'Package not installed: man-db. No man pages will be downloaded.'
 		fi
 		;;
 	user)
@@ -385,6 +398,7 @@ set_provii_man() {
 		}
 		MAN_DIR_PREFERRED="${XDG_DATA_HOME:-$HOME/.local/share}/man"
 
+		# test for man-db package
 		if has_cmd manpath; then
 			MANPATH_DIRS="$(manpath | tr ":" "$CHAR_NL")"
 			if echo "$MANPATH_DIRS" | grep -q "$MAN_DIR_PREFERRED"; then
@@ -397,16 +411,13 @@ set_provii_man() {
 				echo "MANDATORY_MANPATH $PROVII_MAN" >"$HOME/.manpath"
 			fi
 		else
-			if has_package man-db; then
-				# else, add MAN_DIR_PREFERRED to manpath
-				PROVII_MAN="${XDG_DATA_HOME:-$HOME/.local/share}/man"
-				echo "MANDATORY_MANPATH $PROVII_MAN" >"$HOME/.manpath"
-			else
-				warn 'Package not installed: man-db. Failed to set $BASH_COMP variable.'
-			fi
+			warn 'Package not installed: man-db. No man pages will be downloaded.'
 		fi
 		;;
 	esac
+
+	# if $PROVII_MAN was set, then the man-db package is on this machine,
+	# and man should work, so lets ensure the directories exists
 	if [ -n "$PROVII_MAN" ]; then
 		create_dir "$PROVII_MAN"/man1
 		create_dir "$PROVII_MAN"/man5
@@ -670,7 +681,7 @@ show_installer_targets() {
 	)"
 
 	printf "$header_fmt" "$INSTALLER"
-	printf %s\\n "$target_dirs" | column -t -s,
+	printf %s\\n "$target_dirs" | tr ',' '\t'
 
 	if [ "$INTERACTIVE" ]; then
 		prompt 'Press Enter to continue.'
@@ -999,7 +1010,7 @@ set | grep -e ^NAME -e ^SCOPE -e ^OS -e ^ARCH -e ^LIBC \
 				vars[$1] = $2
 			}
 			END {
-				fmt_hdr=sprintf("\n%s%%s%%*s%s\n\n", style_hdr,  no_style)
+				fmt_hdr=sprintf("\n%s%%s%%15s%s\n\n", style_hdr,  no_style)
 
 				max_width_1 = 0
 				max_width_2 = 0
@@ -1128,158 +1139,165 @@ install() {
 	run_installer "$INSTALLATION_SCRIPT"
 }
 
-if has_cmd jq; then
-	JQ="$(command -v jq)"
-elif test -f "$JQ_TARGET_DIR/jq"; then
-	JQ="$JQ_TARGET_DIR/jq"
-else
-	install_jq
-	JQ="$JQ_TARGET_DIR/jq"
-fi
+if [[ ! "$SOURCED" ]]; then
 
-# TO-DO: install unzip binary if needed https://oss.oracle.com/el4/unzip/unzip.tar
+	if has_cmd jq; then
+		JQ="$(command -v jq)"
+	elif test -f "$JQ_TARGET_DIR/jq"; then
+		JQ="$JQ_TARGET_DIR/jq"
+	else
+		install_jq
+		JQ="$JQ_TARGET_DIR/jq"
+	fi
 
-if [ "$(basename "$0")" != 'provii' ]; then
-	INSTALLER="$(basename "$0")"
-	gather_facts
-	INSTALLATION_SCRIPT="$(get_installer)"
-	show_installer_targets
-	run_installer "$INSTALLATION_SCRIPT"
-	exit
-fi
+	# TO-DO: install unzip binary if needed https://oss.oracle.com/el4/unzip/unzip.tar
 
-if [ "$#" -eq 0 ]; then
-	print_usage
-fi
+	# This will account for when the script is run by being downloaded
+	# and piped directly into bash e.g.curl http://script.uri/ | bash -
+	# instead of being run like ./provii install exampleapp÷
 
-check_current_version
-
-cmd="$1"
-shift
-
-case "$cmd" in
-install)
-	while :; do
-		case "$1" in
-		-v) VERBOSE=1 ;;
-		-i) INTERACTIVE=1 ;;
-		-h) print_usage ;;
-		-b)
-			shift
-			PROVII_BRANCH="$1"
-			;;
-		--)
-			shift
-			break
-			;;
-		-*) usage_error 'install' "bad argument $1" ;;
-		*) break ;;
-		esac
-		shift
-	done
-	for APP in "$@"; do
-		INSTALLER="$APP"
+	if [ "$(basename "$0")" != 'provii' ]; then
+		INSTALLER="$(basename "$0")"
 		gather_facts
 		INSTALLATION_SCRIPT="$(get_installer)"
 		show_installer_targets
 		run_installer "$INSTALLATION_SCRIPT"
-	done
-	;;
-log)
-	while :; do
-		case "$1" in
-		-h) print_usage ;;
-		-*) print_usage ;;
-		*)
-			[ $# -gt 1 ] && print_usage
-			break
-			;;
-		esac
-		shift
-	done
-	set_provii_log
-	if [ "$1" ]; then
-		column -t "$PROVII_LOG" | sort | awk -v app="$1" '$3 == app'
-	else
-		column -t "$PROVII_LOG" | sort
+		exit
 	fi
-	;;
-ls)
-	while :; do
-		case "$1" in
-		-h) print_usage ;;
-		-*) print_usage ;;
-		*) break ;;
-		esac
-		shift
-	done
-	ls_installers
-	;;
-env)
-	while :; do
-		case "$1" in
-		-h) print_usage ;;
-		-*) print_usage ;;
-		*) break ;;
-		esac
-		shift
-	done
-	[ -n "$1" ] && INSTALLER="$1"
-	gather_facts
-	run_installer "$PRINT_VARIABLES"
-	;;
-cat)
-	while :; do
-		case "$1" in
-		-h) print_usage ;;
-		-b)
+
+	check_current_version
+
+	if [ "$#" -eq 0 ]; then
+		print_usage
+	fi
+
+	cmd="$1"
+	shift
+
+	case "$cmd" in
+	install)
+		while :; do
+			case "$1" in
+			-v) VERBOSE=1 ;;
+			-i) INTERACTIVE=1 ;;
+			-h) print_usage ;;
+			-b)
+				shift
+				PROVII_BRANCH="$1"
+				;;
+			--)
+				shift
+				break
+				;;
+			-*) usage_error 'install' "bad argument $1" ;;
+			*) break ;;
+			esac
 			shift
-			PROVII_BRANCH="$1"
-			;;
-		-*) print_usage ;;
-		*) break ;;
-		esac
-		shift
-	done
-	INSTALLER="$1"
-	if has_cmd bat; then
-		get_installer | bat --style=grid,numbers --language="bash"
-	else
-		get_installer
-	fi
-	;;
-rm)
-	while :; do
-		case "$1" in
-		-h) print_usage ;;
-		-i) INTERACTIVE=1 ;;
-		-*) usage_error 'cat' "bad argument $1" ;;
-		*) break ;;
-		esac
-		shift
-	done
-	rm_app "$1"
-	;;
-wipe)
-	APPS_INSTALLED="$(awk '{print $3}' ~/.provii.log | sort | uniq)"
-
-	printf "\n%sWARNING%s: ABOUT TO PERMENANTLY REMOVE ALL APPS. USE WITH CAUTION.\n\n" "$MAGENTA" "$STYLE_RESET"
-
-	tabs -8
-	echo "$APPS_INSTALLED" | column -c 80 -x | style FILE
-
-	printf \\n\\n%s\  'Continue? [y|N]' | prompt
-	read -r
-	case "$REPLY" in
-	[Yy]*)
-		for app in $APPS_INSTALLED; do
-			printf '\t%sRemoving:%s %s\n' "$STYLE_ECHO" "$STYLE_RESET" "$app"
+		done
+		for APP in "$@"; do
+			INSTALLER="$APP"
+			gather_facts
+			INSTALLATION_SCRIPT="$(get_installer)"
+			show_installer_targets
+			run_installer "$INSTALLATION_SCRIPT"
 		done
 		;;
-	*)
-		echo "Exiting without removing any files."
-		exit
+	log)
+		while :; do
+			case "$1" in
+			-h) print_usage ;;
+			-*) print_usage ;;
+			*)
+				[ $# -gt 1 ] && print_usage
+				break
+				;;
+			esac
+			shift
+		done
+		set_provii_log
+		if [ "$1" ]; then
+			column -t "$PROVII_LOG" | sort | awk -v app="$1" '$3 == app'
+		else
+			column -t "$PROVII_LOG" | sort
+		fi
+		;;
+	ls)
+		while :; do
+			case "$1" in
+			-h) print_usage ;;
+			-*) print_usage ;;
+			*) break ;;
+			esac
+			shift
+		done
+		ls_installers
+		;;
+	env)
+		while :; do
+			case "$1" in
+			-h) print_usage ;;
+			-*) print_usage ;;
+			*) break ;;
+			esac
+			shift
+		done
+		[ -n "$1" ] && INSTALLER="$1"
+		gather_facts
+		run_installer "$PRINT_VARIABLES"
+		;;
+	cat)
+		while :; do
+			case "$1" in
+			-h) print_usage ;;
+			-b)
+				shift
+				PROVII_BRANCH="$1"
+				;;
+			-*) print_usage ;;
+			*) break ;;
+			esac
+			shift
+		done
+		INSTALLER="$1"
+		if has_cmd bat; then
+			get_installer | bat --style=grid,numbers --language="bash"
+		else
+			get_installer
+		fi
+		;;
+	rm)
+		while :; do
+			case "$1" in
+			-h) print_usage ;;
+			-i) INTERACTIVE=1 ;;
+			-*) usage_error 'cat' "bad argument $1" ;;
+			*) break ;;
+			esac
+			shift
+		done
+		rm_app "$1"
+		;;
+	wipe)
+		APPS_INSTALLED="$(awk '{print $3}' ~/.provii.log | sort | uniq)"
+
+		printf "\n%sWARNING%s: ABOUT TO PERMENANTLY REMOVE ALL APPS. USE WITH CAUTION.\n\n" "$MAGENTA" "$STYLE_RESET"
+
+		tabs -8
+		echo "$APPS_INSTALLED" | column -c 80 -x | style FILE
+
+		printf \\n\\n%s\  'Continue? [y|N]' | prompt
+		read -r
+		case "$REPLY" in
+		[Yy]*)
+			for app in $APPS_INSTALLED; do
+				printf '\t%sRemoving:%s %s\n' "$STYLE_ECHO" "$STYLE_RESET" "$app"
+			done
+			;;
+		*)
+			echo "Exiting without removing any files."
+			exit
+			;;
+		esac
 		;;
 	esac
-	;;
-esac
+fi
