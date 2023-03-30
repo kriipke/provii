@@ -1,11 +1,9 @@
 #!/bin/bash -eE
 
 # Determines if the script was sourced or executed
-(return 0 2>/dev/null) && SOURCED=1
-
-if [[ ! "$SOURCED" ]]; then
-	echo "tootleeee"
-fi
+is_sourced() {
+	(return 0 2>/dev/null) || SOURCED=1
+}
 
 get_distro() {
 	if [[ -f /etc/os-release ]]; then
@@ -17,15 +15,16 @@ cleanup() {
 	if [ "$RESET_TABS" ]; then
 		tabs -8
 	fi
-	if [ "$CLEAN_CACHE_EXIT_ON" ] && [ "$PROVII_CACHE" ]; then
+	if [[ "$CLEAN_CACHE_ON_EXIT" ]] && [ "$PROVII_CACHE" ]; then
 		rm -rf $PROVII_CACHE || true
 	fi
 }
 
 if command -v tabs >/dev/null 2>&1; then
 	tabs -4 && RESET_TABS=1
-	trap 'cleanup' EXIT
 fi
+
+trap 'cleanup' EXIT
 
 PROVII_REPO=kriipke/provii
 PROVII_BRANCH=master
@@ -93,7 +92,7 @@ if command -v tput >/dev/null 2>&1; then
 	STYLE_FILES="$CYAN"
 	STYLE_HEADER="${UNDERLINE}${CYAN}"
 	STYLE_INFO="$RED"
-	[[ "$DEBUG" ]] && "$STYLE_RESET"
+	[[ "$DEBUG" ]] && tput sgr0
 fi
 
 _help='
@@ -585,7 +584,7 @@ set_provii_scope() {
 get_installer() {
 	GITHUB_API_QUERY="$(
 		printf 'https://api.github.com%s%s' \
-			"/repos/kriipke/provii/contents/installs/$INSTALLER" \
+			"/repos/$PROVII_REPO/contents/installs/$INSTALLER" \
 			"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}"
 	)"
 	curl -sSL "$GITHUB_API_QUERY" |
@@ -691,7 +690,7 @@ show_installer_targets() {
 
 ls_installers() {
 	GITHUB_QUERY_LS="$(printf \
-		"https://api.github.com/repos/kriipke/provii/contents/installs%s" \
+		"https://api.github.com/repos/$PROVII_REPO/contents/installs%s" \
 		"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}")"
 	JQ_QUERY='.[] | [ .name, .download_url ] | @csv'
 
@@ -759,6 +758,7 @@ ASSET_URL=$( echo "$ASSETS" | "$JQ" -r "$JQ_CMD" )
 
 # if asset not found, search search using compatible architectures
 if [ -z "$ASSET_URL" ]; then
+echo arch $ARCH 
 	case "$ARCH" in
 		*amd64*)
 			ALT_RE_1="${RE//amd64/x86_64}" ;;
@@ -802,13 +802,13 @@ if [ -z "$ASSET_URL" ]; then
 		*x86_64*)
 			ALT_RE_2="${RE//x86_64/"$re64"}" ;;
 		aarch64)
-			ALT_RE_2="${RE//aarch64/"$re64"}" ;;
+			ALT_RE_2="${RE//aarch64/arm8}" ;;
 		aarch64_be)
-			ALT_RE_2="${RE//aarch64_be/"$re64"}" ;;
+			ALT_RE_2="${RE//aarch64_be/arm8}" ;;
 		armv8b)
-			ALT_RE_2="${RE//armv8b/"$re64"}" ;;
+			ALT_RE_2="${RE//armv8b/arm8}" ;;
 		armv8l)
-			ALT_RE_2="${RE//armv8l/"$re64"}" ;;
+			ALT_RE_2="${RE//armv8l/arm8}" ;;
 		*i386*)
 			ALT_RE_2="${RE//i386/"$re32"}" ;;
 		*i586*)
@@ -1085,8 +1085,8 @@ run_installer() {
 		${STYLE_ERROR:+STYLE_ERROR="$MAGENTA"} \
 		${CYAN:+CYAN="$CYAN"} \
 		${STYLE_RESET:+STYLE_RESET="$STYLE_RESET"} \
-		${PS4:+PS4="$(tput ht)$(tput ht)$(tput setaf 6)$INSTALLER "'$LINENO $FUNCNAME'" :: $(tput sgr 0)"} \
 		${VERBOSE:+VERBOSE="$VERBOSE"} \
+		PS4='$(printf "%s%20.5f @line %7i\\tf:%-30s\\t\\t\\t%s" "$CYAN" "$(date "+%s.%N")" "$LINENO" "${FUNCNAME:-main}" "$STYLE_RESET")' \
 		_ERROR_PREFIX="$_ERROR_PREFIX" \
 		_ERROR_SPACER="$_ERROR_SPACER" \
 		STYLE_VARS="$STYLE_VARS" \
@@ -1139,7 +1139,7 @@ install() {
 	run_installer "$INSTALLATION_SCRIPT"
 }
 
-if [[ ! "$SOURCED" ]]; then
+main() {
 
 	if has_cmd jq; then
 		JQ="$(command -v jq)"
@@ -1300,4 +1300,12 @@ if [[ ! "$SOURCED" ]]; then
 		esac
 		;;
 	esac
+}
+
+# check to see if provii is being sourced
+# or if it is being executed asa script
+is_sourced
+echo $SOURCED
+if [[ ! $SOURCED ]]; then
+	main "$@"
 fi
