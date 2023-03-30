@@ -13,6 +13,7 @@ jobs:
 
       - name: Check out code
         uses: actions/checkout@v1
+        submodules: true
 
       - name: Test
         run: bats -r test
