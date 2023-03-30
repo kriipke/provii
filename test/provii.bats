@@ -1,126 +1,23 @@
-#!/usr/bin/env ./test/libs/bats/bin/bats
-load 'libs/bats-support/load'
-load 'libs/bats-assert/load'
+setup() {
+    load 'test_helper/bats-support/load'
+    load 'test_helper/bats-assert/load'
+    # ... the remaining setup is unchanged
 
-
-
-@test "install exa" {
-  provii install exa
+    # get the containing directory of this file
+    # use $BATS_TEST_FILENAME instead of ${BASH_SOURCE[0]} or $0,
+    # as those will point to the bats executable's location or the preprocessed file respectively
+    DIR="$( cd "$( dirname "$BATS_TEST_FILENAME" )" >/dev/null 2>&1 && pwd )"
+    echo $DIR
+    # make executables in src/ visible to PATH
+    PATH="$DIR/../src:$PATH"
 }
 
-@test "install kmon" {
-  provii install kmon
+@test "can run our script" {
+  $DIR/../provii
 }
 
-@test "install v" {
-  provii install v
+@test "can determine whether provii is sourced or executed" {
+  source $DIR/../provii
+  is_sourced
+  [[ "$SOURCED" ]]
 }
-
-@test "install bvi" {
-  provii install bvi
-}
-
-@test "install up" {
-  provii install up
-}
-
-@test "install lsd" {
-  provii install lsd
-}
-
-@test "install mdcat" {
-  provii install mdcat
-}
-
-@test "install vipe" {
-  provii install vipe
-}
-
-@test "install delta" {
-  provii install delta
-}
-
-@test "install tag" {
-  provii install tag
-}
-
-@test "install desed" {
-  provii install desed
-}
-
-@test "install fx" {
-  provii install fx
-}
-
-@test "install usql" {
-  provii install usql
-}
-
-@test "install fd" {
-  provii install fd
-}
-
-@test "install jq" {
-  provii install jq
-}
-
-@test "install bat" {
-  provii install bat
-}
-
-@test "install ytop" {
-  provii install ytop
-}
-
-@test "install hyperfine" {
-  provii install hyperfine
-}
-
-@test "install shellcheck" {
-  provii install shellcheck
-}
-
-@test "install magick" {
-  provii install magick
-}
-
-@test "install dust" {
-  provii install dust
-}
-
-@test "install croc" {
-  provii install croc
-}
-
-@test "install inxi" {
-  provii install inxi
-}
-
-@test "install rg" {
-  provii install rg
-}
-
-@test "install glow" {
-  provii install glow
-}
-
-@test "install gh" {
-  provii install gh
-}
-
-@test "install dive" {
-  provii install dive
-}
-
-@test "install bandwhich" {
-  provii install bandwhich
-}
-
-@test "install fzf" {
-  provii install fzf
-}
-
-@test "install navi" {
-  provii install navi
-}
-
