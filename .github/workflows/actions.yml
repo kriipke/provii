@@ -17,4 +17,4 @@ jobs:
           submodules: true
 
       - name: Test
-        run: bats -r test
+        run: bats test/provii.bats
