@@ -12,7 +12,7 @@ jobs:
           bats-version: 1.2.1
 
       - name: Check out code
-        uses: actions/checkout@v1
+        uses: actions/checkout@v3
         submodules: true
 
       - name: Test
