@@ -1,4 +1,8 @@
-#!/bin/sh -eE
+#!/bin/bash -eE
+
+is_sourced() {
+	(return 0 2>/dev/null) && SOURCED=1
+}
 
 cleanup() {
 	if [ "$RESET_TABS" ]; then
@@ -29,34 +33,41 @@ if [ "$DEBUG" ]; then
 	set -x
 	unset CLEAN_CACHE_EXIT_ON
 	VERBOSE=1
-	PS4='+ $(date "+%s.%N")\011 @line $LINENO\011'
+	PS4='$(printf "%s%20.5f @line %7i\\tf:%-30s\\t\\t\\t%s" "$CYAN" "$(date "+%s.%N")" "$LINENO" ${FUNCNAME:-main}) "$STYLE_RESET"'
+fi
+
+if [ "$DEBUG_ALT" ]; then
+	set -v
+	unset CLEAN_CACHE_EXIT_ON
 fi
 
 PROVII_VARS='\(OS\|SCOPE\|LIBC\|BASH_COMP\|ZSH_COMP\|MAN\|NAME\|CACHE\|ARCH\|BIN\|LOG\)'
 
 check_current_version() {
 	API_REQ=$GH/repos/kriipke/provii/tags
-	LATEST_VERSION="$( curl -s "$API_REQ" | $JQ -r '.[0].name' )"
+	LATEST_VERSION="$(curl -s "$API_REQ" | $JQ -r '.[0].name')"
 	THIS_SCRIPTS_DIRNAME="$(dirname "$0")"
 	case "$LATEST_VERSION" in
-		"$PROVII_VERSION")
-			true ;;
-		v*)
-			if [ -w "$THIS_SCRIPTS_DIRNAME" ]; then
-				printf '\nNew provii release found!\n\nPress Enter to install %s or CTRL-C to Cancel.\n' "$LATEST_VERSION"
-				read RESPONSE
-				printf 'Upgrading to %s...\n' "$LATEST_VERSION" 
-				PROVII_BIN="$THIS_SCRIPTS_DIRNAME" install provii
-			else
-				printf "\nNew provii release found!\n\nSadly you'll have to re-run provii with administrator privileges to upgrade to %s. Press Ctrl-C to exit or Enter to continue with the current version.\n" "$LATEST_VERSION"
-				read RESPONSE
-			fi
-			;;
-		*)
-			echo "Update check failed! Failed to determine current provii release." ;;
+	"$PROVII_VERSION")
+		true
+		;;
+	v*)
+		if [ -w "$THIS_SCRIPTS_DIRNAME" ]; then
+			printf '\nNew provii release found!\n\nPress Enter to install %s or CTRL-C to Cancel.\n' "$LATEST_VERSION"
+			read RESPONSE
+			printf 'Upgrading to %s...\n' "$LATEST_VERSION"
+			PROVII_BIN="$THIS_SCRIPTS_DIRNAME" install provii
+		else
+			printf "\nNew provii release found!\n\nSadly you'll have to re-run provii with administrator privileges to upgrade to %s. Press Ctrl-C to exit or Enter to continue with the current version.\n" "$LATEST_VERSION"
+			read RESPONSE
+		fi
+		;;
+	*)
+		echo "Update check failed! Failed to determine current provii release."
+		;;
 	esac
 }
-	
+
 if command -v tput >/dev/null 2>&1; then
 	TAB="$(tput ht 2>/dev/null || echo '')"
 	if [ $(($(tput colors 2>/dev/null))) -ge 8 ]; then
@@ -73,6 +84,7 @@ if command -v tput >/dev/null 2>&1; then
 	STYLE_FILES="$CYAN"
 	STYLE_HEADER="${UNDERLINE}${CYAN}"
 	STYLE_INFO="$RED"
+	[[ "$DEBUG" ]] && "$STYLE_RESET"
 fi
 
 _help='
@@ -246,25 +258,24 @@ set_provii_bin() {
 			elif echo "$PATH_DIRS" | grep -q "$BIN_FALLBACK"; then
 				PROVII_BIN="$BIN_FALLBACK"
 			elif echo "$PATH_DIRS" | grep -m 1 "^$HOME"; then
-                PROVII_BIN="$( echo "$PATH_DIRS" | grep -m 1 "^$HOME" )"
+				PROVII_BIN="$(echo "$PATH_DIRS" | grep -m 1 "^$HOME")"
 			else
-              err Neither the default target for binaries, \
-                "$(style DIR "$BIN_DEFAULT")", nor the fallback target, \
-                "$(style DIR "$BIN_FALLBACK")", was found in PATH. Either \
-                Add one of the above directories to your PATH, add a \
-                directory to your PATH that resides in your home directory, \
-                or re-run provii. Exiting without making any changes.
+				err Neither the default target for binaries, \
+					"$(style DIR "$BIN_DEFAULT")", nor the fallback target, \
+					"$(style DIR "$BIN_FALLBACK")", was found in PATH. Either \
+					Add one of the above directories to your PATH, add a \
+					directory to your PATH that resides in your home directory, \
+					or re-run provii. Exiting without making any changes.
 			fi
 		fi
 		;;
 	esac
 
-    create_dir "${PROVII_BIN:?}"
-    if ! [ -w $PROVII_BIN ]; then
-      err Target directory for binary files, "$(style DIR "$PROVII_BIN")",\
-        is not writable, please correct this or change default target and \
-        re-run. Exiting without making any changes.
-    fi
+	create_dir "${PROVII_BIN:?}"
+	if ! [ -w $PROVII_BIN ]; then
+		err Target directory for binary files, "$(style DIR "$PROVII_BIN")", is not writable, please correct this or change default target and \
+			re-run. Exiting without making any changes.
+	fi
 }
 
 set_provii_data() {
@@ -453,82 +464,86 @@ done' "$PROVII_BASH_COMP" >>"$PROVII_BASH_CONFIG"
 	esac
 }
 
-
 set_provii_zsh_comp() {
 	if has_cmd zsh; then
 
 		case "${PROVII_SCOPE:?}" in
 		system)
-			ZSH_DIR="$(zsh -c '
+			ZSH_DIR="$(
+				zsh -c '
                 . /etc/zshrc &>/dev/null
                 echo $ZSH'
-            )"
-			SYSTEM_FPATH="$( export CHAR_NL CHAR_SPCE; zsh -c '
+			)"
+			SYSTEM_FPATH="$(
+				export CHAR_NL CHAR_SPCE
+				zsh -c '
                 . /etc/zshrc &>/dev/null
                 echo "$fpath" | tr $CHAR_SPCE $CHAR_NL'
-            )"
+			)"
 
-            ZSH_COMP_DEFAULT=/usr/local/share/zsh/site-functions
-            ZSH_COMP_FALLBACK=/usr/share/zsh/site-functions
-            ZSH_DIR_COMPS="$(printf '%s/completions' "$ZSH_DIR")"
-            ZSH_DIR_CUSTOM="$(printf '%s/custom' "$ZSH_DIR")"
+			ZSH_COMP_DEFAULT=/usr/local/share/zsh/site-functions
+			ZSH_COMP_FALLBACK=/usr/share/zsh/site-functions
+			ZSH_DIR_COMPS="$(printf '%s/completions' "$ZSH_DIR")"
+			ZSH_DIR_CUSTOM="$(printf '%s/custom' "$ZSH_DIR")"
 
-            case "$SYSTEM_FPATH" in
-              *$ZSH_DIR_COMPS*) 
-                if ! echo "$ZSH_DIR" | grep -q "^$HOME"; then
-                  PROVII_ZSH_COMP="$ZSH_DIR_COMPS"
-                fi
-                ;;
-              *$ZSH_DIR_CUSTOM*) 
-                if ! echo "$ZSH_DIR" | grep -q "^$HOME"; then
-                  PROVII_ZSH_COMP="$ZSH_DIR_CUSTOM"
-                fi
-                ;;
-              *$ZSH_COMP_DEFAULT*) PROVII_ZSH_COMP="$ZSH_DIR_DEFAULT" ;;
-              *) PROVII_ZSH_COMP="$ZSH_DIR_FALLBACK" ;;
-            esac
+			case "$SYSTEM_FPATH" in
+			*$ZSH_DIR_COMPS*)
+				if ! echo "$ZSH_DIR" | grep -q "^$HOME"; then
+					PROVII_ZSH_COMP="$ZSH_DIR_COMPS"
+				fi
+				;;
+			*$ZSH_DIR_CUSTOM*)
+				if ! echo "$ZSH_DIR" | grep -q "^$HOME"; then
+					PROVII_ZSH_COMP="$ZSH_DIR_CUSTOM"
+				fi
+				;;
+			*$ZSH_COMP_DEFAULT*) PROVII_ZSH_COMP="$ZSH_DIR_DEFAULT" ;;
+			*) PROVII_ZSH_COMP="$ZSH_DIR_FALLBACK" ;;
+			esac
 			;;
 
 		user)
-			USER_FPATH="$(export CHAR_NL CHAR_SPCE; zsh -c '
+			USER_FPATH="$(
+				export CHAR_NL CHAR_SPCE
+				zsh -c '
               . /etc/zshrc &>/dev/null
               . ${ZDOTDIR:-$HOME}/.zshrc &>/dev/null
               echo "$fpath" | tr $CHAR_SPCE $CHAR_NL'
-            )"
-			ZDOTDIR="$( zsh -c '
+			)"
+			ZDOTDIR="$(
+				zsh -c '
               . /etc/zshrc &>/dev/null
               . ${ZDOTDIR:-$HOME}/.zshrc &>/dev/null
               echo ${ZDOTDIR:-$HOME}'
-            )"
+			)"
 
-            # leave without setting PROVII_ZSH_COMP if no dirs
-            # in fpath located in user's home directory
+			# leave without setting PROVII_ZSH_COMP if no dirs
+			# in fpath located in user's home directory
 			if echo "$USER_FPATH" | grep -m1 '^$HOME'; then
-                USER_FPATH="$(echo "$USER_FPATH" | grep -m1 '^$HOME')"
-                ZDOTDIR_COMPS="$(printf '%s/completions' "$ZDOTDIR")"
-                ZDOTDIR_CUSTOM="$(printf '%s/custom' "$ZDOTDIR")"
-                ZSH_COMP_DEFAULT="$(echo "$USER_FPATH" | grep -m1 "^$HOME")"
+				USER_FPATH="$(echo "$USER_FPATH" | grep -m1 '^$HOME')"
+				ZDOTDIR_COMPS="$(printf '%s/completions' "$ZDOTDIR")"
+				ZDOTDIR_CUSTOM="$(printf '%s/custom' "$ZDOTDIR")"
+				ZSH_COMP_DEFAULT="$(echo "$USER_FPATH" | grep -m1 "^$HOME")"
 
-                case "$USER_FPATH" in
-                  *$ZDOTDIR_COMPS*) PROVII_ZSH_COMP="$ZDOTDIR_COMPS" ;;
-                  *$ZDOTDIR_CUSTOM*) PROVII_ZSH_COMP="$ZDOTDIR_CUSTOM" ;;
-                  *) PROVII_ZSH_COMP="$ZSH_COMP_DEFAULT" ;;
-                esac
-            fi
+				case "$USER_FPATH" in
+				*$ZDOTDIR_COMPS*) PROVII_ZSH_COMP="$ZDOTDIR_COMPS" ;;
+				*$ZDOTDIR_CUSTOM*) PROVII_ZSH_COMP="$ZDOTDIR_CUSTOM" ;;
+				*) PROVII_ZSH_COMP="$ZSH_COMP_DEFAULT" ;;
+				esac
+			fi
 			;;
 		esac
 
-        ${PROVII_ZSH_COMP:+`create_dir "$PROVII_ZSH_COMP"`}
-  fi
+		${PROVII_ZSH_COMP:+$(create_dir "$PROVII_ZSH_COMP")}
+	fi
 }
 
 set_provii_libc() {
-	if command -v ldd >/dev/null 2>&1; then
+	if command -v ldd &>/dev/null; then
 		LDD_OUTPUT="$(
-			ldd --version 2>/dev/null \
-				| head -1 \
-				| tr "[:upper:]" "[:lower:]"
+			ldd --version 2>&1 | paste -d' ' -s | tr "[:upper:]" "[:lower:]"
 		)"
+		[[ "$VERBOSE" ]] && echo "$LDD_OUTPUT"
 		case "$LDD_OUTPUT" in
 		*musl*) PROVII_LIBC=musl ;;
 		*gnu* | *glibc*) PROVII_LIBC=gnu ;;
@@ -562,9 +577,9 @@ get_installer() {
 			"/repos/kriipke/provii/contents/installs/$INSTALLER" \
 			"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}"
 	)"
-	curl -sSL "$GITHUB_API_QUERY" \
-		| "$JQ" '.download_url' \
-		| xargs curl -sSL
+	curl -sSL "$GITHUB_API_QUERY" |
+		"$JQ" '.download_url' |
+		xargs curl -sSL
 }
 
 # TO-DO: account for the fact that $BIN is not referenced when using install fn
@@ -573,15 +588,15 @@ get_installer_vars() {
 		"Installation script has not been downloaded yet"
 
 	VARS_RE="$(printf %s "$PROVII_VARS" | sed -E 's/(\\[(|])/\1$/g')"
-	printf '\n%s' "$(echo "$INSTALLATION_SCRIPT" | grep -o "$VARS_RE")" \
-		| sort | uniq
+	printf '\n%s' "$(echo "$INSTALLATION_SCRIPT" | grep -o "$VARS_RE")" |
+		sort | uniq
 }
 
 show_installer_targets() {
 	_INSTALLER_VARS="$(get_installer_vars "$INSTALLER")"
-	
-	SRC_DST=$(echo "$INSTALLATION_SCRIPT" \
-		| awk -e '/install.*\$BIN/ {printf "%s,%s\n", $2, gensub(/^.*"?\$BIN\/?(.*)$/,"\1","g")}')
+
+	SRC_DST=$(echo "$INSTALLATION_SCRIPT" |
+		awk -e '/install.*\$BIN/ {printf "%s,%s\n", $2, gensub(/^.*"?\$BIN\/?(.*)$/,"\1","g")}')
 
 	target_exe=''
 	for line in $SRC_DST; do
@@ -589,7 +604,7 @@ show_installer_targets() {
 		DST_PATH="${line#,*}"
 		SRC_FILE="${SRC_PATH##*/}"
 		DST_FILE="${DST_PATH##*/}"
-		
+
 		output_line="$(
 			printf "%s,%s/%s" "$(style VAR "EXECUTABLE")" \
 				"$PROVII_BIN" "${DST_FILE:-$SRC_FILE}"
@@ -598,8 +613,8 @@ show_installer_targets() {
 	done
 
 	if [ "$PROVII_MAN" ] && echo "$_INSTALLER_VARS" | grep -q '$MAN'; then
-		SRC_DST=$(echo "$INSTALLATION_SCRIPT" \
-			| awk -e '/cp.*\$MAN/ {printf "%s,%s\n", $2, gensub(/^.*"?\$MAN\/?(.*)$/,"\1","g")}')
+		SRC_DST=$(echo "$INSTALLATION_SCRIPT" |
+			awk -e '/cp.*\$MAN/ {printf "%s,%s\n", $2, gensub(/^.*"?\$MAN\/?(.*)$/,"\1","g")}')
 
 		target_man=''
 		for line in $SRC_DST; do
