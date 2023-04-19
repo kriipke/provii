@@ -1,0 +1,31 @@
+image: kriipke/rpmbuild
+
+stages:
+  - prep
+  - validate
+  - build
+
+rpmspec-lint:
+  stage: prep
+  script:
+    - find . -regex ".*\.1$" | xargs gzip
+
+rpmspec-lint:
+  stage: prep
+  script:
+    - rpmdev-setuptree
+    - cp src $REPONAME-$RELEASE
+    - tar cf $REPONAME-$RELEASE.tar.gz $REPONAME-$RELEASE
+    - mv $REPONAME-$RELEASE.tar.gz SOURCES/
+    - cp provii.spec SPECS/
+
+build-code-job:
+  stage: validate
+  script:
+    - rpmlint /rpmbuild/SPECS/$REPONAME.spec
+
+test-code-job1:
+  stage: build
+  script:
+    - rpmbuild -bs /rpmbuild/SPECS/$REPONAME.spec
+    - rpmbuild -bb /rpmbuild/SPECS/$REPONAME.spec
