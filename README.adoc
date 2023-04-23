@@ -1,5 +1,11 @@
 = provii
 
+++++
+<p align="center">
+  <img width="300" height="300" src="src/share/provii.png">
+</p>
+++++
+
 `provii` is a provisioning tool to painlessly download your favorite command-line utilities as pre-compiled binaries on a machine that that may be missing them. It is a convenient alternative when you do not have the premissions required to install software using the systems package manager or when you do not wish to install the software system-wide.
 
 The script itself is hosted at link:https://raw.github.com/kriipke/provii/master/provii[]. Additionally, the list of installers available via `provii` can be found at link:https://github.com/kriipke/provii/tree/master/installs[here] (or listed using `provii` itself, see <<provii ls,`provii ls`>>)
