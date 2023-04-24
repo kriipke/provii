@@ -1,34 +1,22 @@
-#!/bin/bash -eE
-
-# Determines if the script was sourced or executed
-is_sourced() {
-	(return 0 2>/dev/null) || SOURCED=1
-}
-
-get_distro() {
-	if [[ -f /etc/os-release ]]; then
-		(unset ID && . /etc/os-release && echo $ID)
-	fi
-}
+#!/bin/sh -eE
 
 cleanup() {
 	if [ "$RESET_TABS" ]; then
 		tabs -8
 	fi
-	if [[ "$CLEAN_CACHE_ON_EXIT" ]] && [ "$PROVII_CACHE" ]; then
+	if [ "$CLEAN_CACHE_EXIT_ON" ] && [ "$PROVII_CACHE" ]; then
 		rm -rf $PROVII_CACHE || true
 	fi
 }
 
 if command -v tabs >/dev/null 2>&1; then
 	tabs -4 && RESET_TABS=1
+	trap 'cleanup' EXIT
 fi
-
-trap 'cleanup' EXIT
 
 PROVII_REPO=kriipke/provii
 PROVII_BRANCH=master
-PROVII_VERSION='v0.2'
+PROVII_VERSION='0.3.0'
 CLEAN_CACHE_ON_EXIT=1
 #JQ_TARGET_DIR="$HOME/.local/bin"
 
@@ -41,41 +29,34 @@ if [ "$DEBUG" ]; then
 	set -x
 	unset CLEAN_CACHE_EXIT_ON
 	VERBOSE=1
-	PS4='$(printf "%s%20.5f @line %7i\\tf:%-30s\\t\\t\\t%s" "$CYAN" "$(date "+%s.%N")" "$LINENO" ${FUNCNAME:-main}) "$STYLE_RESET"'
-fi
-
-if [ "$DEBUG_ALT" ]; then
-	set -v
-	unset CLEAN_CACHE_EXIT_ON
+	PS4='+ $(date "+%s.%N")\011 @line $LINENO\011'
 fi
 
 PROVII_VARS='\(OS\|SCOPE\|LIBC\|BASH_COMP\|ZSH_COMP\|MAN\|NAME\|CACHE\|ARCH\|BIN\|LOG\)'
 
 check_current_version() {
 	API_REQ=$GH/repos/kriipke/provii/tags
-	LATEST_VERSION="$(curl -s "$API_REQ" | $JQ -r '.[0].name')"
+	LATEST_VERSION="$( curl -s "$API_REQ" | $JQ -r '.[0].name' )"
 	THIS_SCRIPTS_DIRNAME="$(dirname "$0")"
 	case "$LATEST_VERSION" in
-	"$PROVII_VERSION")
-		true
-		;;
-	v*)
-		if [ -w "$THIS_SCRIPTS_DIRNAME" ]; then
-			printf '\nNew provii release found!\n\nPress Enter to install %s or CTRL-C to Cancel.\n' "$LATEST_VERSION"
-			read RESPONSE
-			printf 'Upgrading to %s...\n' "$LATEST_VERSION"
-			PROVII_BIN="$THIS_SCRIPTS_DIRNAME" install provii
-		else
-			printf "\nNew provii release found!\n\nSadly you'll have to re-run provii with administrator privileges to upgrade to %s. Press Ctrl-C to exit or Enter to continue with the current version.\n" "$LATEST_VERSION"
-			read RESPONSE
-		fi
-		;;
-	*)
-		echo "Update check failed! Failed to determine current provii release."
-		;;
+		"$PROVII_VERSION")
+			true ;;
+		v*)
+			if [ -w "$THIS_SCRIPTS_DIRNAME" ]; then
+				printf '\nNew provii release found!\n\nPress Enter to install %s or CTRL-C to Cancel.\n' "$LATEST_VERSION"
+				read RESPONSE
+				printf 'Upgrading to %s...\n' "$LATEST_VERSION" 
+				PROVII_BIN="$THIS_SCRIPTS_DIRNAME" install provii
+			else
+				printf "\nNew provii release found!\n\nSadly you'll have to re-run provii with administrator privileges to upgrade to %s. Press Ctrl-C to exit or Enter to continue with the current version.\n" "$LATEST_VERSION"
+				read RESPONSE
+			fi
+			;;
+		*)
+			echo "Update check failed! Failed to determine current provii release." ;;
 	esac
 }
-
+	
 if command -v tput >/dev/null 2>&1; then
 	TAB="$(tput ht 2>/dev/null || echo '')"
 	if [ $(($(tput colors 2>/dev/null))) -ge 8 ]; then
@@ -92,7 +73,6 @@ if command -v tput >/dev/null 2>&1; then
 	STYLE_FILES="$CYAN"
 	STYLE_HEADER="${UNDERLINE}${CYAN}"
 	STYLE_INFO="$RED"
-	[[ "$DEBUG" ]] && tput sgr0
 fi
 
 _help='
@@ -155,19 +135,25 @@ prompt() {
 install_jq() {
 	JQ_VERSION="1.6"
 	JQ_URL="https://github.com/stedolan/jq/releases/download/jq-$JQ_VERSION"
+	JQ_TARGET_DIR="${JQ_TARGET_DIR:-$HOME/.local/bin}"
 
 	set_provii_os
 	set_provii_arch
-	set_provii_bin
 
-	JQ_TARGET_DIR="${PROVII_BIN:-$HOME/.local/bin}"
+	if [ "$PROVII_OS" = 'darwin' ]; then
+		JQ_FILE="jq-osx-amd64"
+	else
+		case "$PROVII_ARCH" in
+		x86_64 | amd64 | aarch64)
+			JQ_FILE="jq-linux64"
+			;;
+		i386 | i586 | i686)
+			JQ_FILE="jq-linux32"
+			;;
+		esac
+	fi
 
-	case "$PROVII_ARCH" in
-	x86_64 | amd64 | aarch64) JQ_FILE="jq-linux64" ;;
-	i386 | i586 | i686) JQ_FILE="jq-linux32" ;;
-	esac
-
-	create_dir "$JQ_TARGET_DIR"
+	[ -d "$JQ_TARGET_DIR" ] || create_dir "$JQ_TARGET_DIR"
 	curl -sSLo "$JQ_TARGET_DIR/jq" "$JQ_URL/$JQ_FILE"
 	chmod ug+rx "$JQ_TARGET_DIR/jq"
 
@@ -260,24 +246,25 @@ set_provii_bin() {
 			elif echo "$PATH_DIRS" | grep -q "$BIN_FALLBACK"; then
 				PROVII_BIN="$BIN_FALLBACK"
 			elif echo "$PATH_DIRS" | grep -m 1 "^$HOME"; then
-				PROVII_BIN="$(echo "$PATH_DIRS" | grep -m 1 "^$HOME")"
+                PROVII_BIN="$( echo "$PATH_DIRS" | grep -m 1 "^$HOME" )"
 			else
-				err Neither the default target for binaries, \
-					"$(style DIR "$BIN_DEFAULT")", nor the fallback target, \
-					"$(style DIR "$BIN_FALLBACK")", was found in PATH. Either \
-					Add one of the above directories to your PATH, add a \
-					directory to your PATH that resides in your home directory, \
-					or re-run provii. Exiting without making any changes.
+              err Neither the default target for binaries, \
+                "$(style DIR "$BIN_DEFAULT")", nor the fallback target, \
+                "$(style DIR "$BIN_FALLBACK")", was found in PATH. Either \
+                Add one of the above directories to your PATH, add a \
+                directory to your PATH that resides in your home directory, \
+                or re-run provii. Exiting without making any changes.
 			fi
 		fi
 		;;
 	esac
 
-	create_dir "${PROVII_BIN:?}"
-	if ! [ -w $PROVII_BIN ]; then
-		err Target directory for binary files, "$(style DIR "$PROVII_BIN")", is not writable, please correct this or change default target and \
-			re-run. Exiting without making any changes.
-	fi
+    create_dir "${PROVII_BIN:?}"
+    if ! [ -w $PROVII_BIN ]; then
+      err Target directory for binary files, "$(style DIR "$PROVII_BIN")",\
+        is not writable, please correct this or change default target and \
+        re-run. Exiting without making any changes.
+    fi
 }
 
 set_provii_data() {
@@ -298,27 +285,14 @@ has_package() {
 		err "Usage: has_package [--version] PACKAGE"
 	fi
 
-	if test -f /etc/apk/repositories && has_cmd apk; then
-		QUERYPKG_CMD_FMT='apk -e info %s'
-	elif test -d /etc/yum.repos.d/ && has_cmd rpm; then
+	if has_cmd rpm; then
 		QUERYPKG_CMD_FMT='rpm -qa --queryformat %s  name=%s'
-	elif [[ -d /etc/apt/sources.list.d || -f /etc/apt/sources.list ]] && has_cmd dpkg-query; then
+	elif has_cmd dpkg-query; then
 		QUERYPKG_CMD_FMT='dpkg-query --showformat=%s --show %s'
 	else
 		err "Function has_package failed to locate " \
-			"either (1) apk (2) rpm or (3) dpkg-query commands."
+			"either (1) rpm or (2) dpkg-query commands."
 	fi
-
-	# if has_cmd apk; then
-	# 	QUERYPKG_CMD_FMT='rpm -qa --queryformat %s  name=%s'
-	# elif has_cmd rpm; then
-	# 	QUERYPKG_CMD_FMT='rpm -qa --queryformat %s  name=%s'
-	# elif has_cmd dpkg-query; then
-	# 	QUERYPKG_CMD_FMT='dpkg-query --showformat=%s --show %s'
-	# else
-	# 	err "Function has_package failed to locate " \
-	# 		"either (1) rpm or (2) dpkg-query commands."
-	# fi
 
 	PACKAGE_VERSION="$($(printf "$QUERYPKG_CMD_FMT" '%{VERSION}\n' "$PACKAGE"))"
 	if [ -n "$PACKAGE_VERSION" ]; then
@@ -377,7 +351,6 @@ set_provii_man() {
 		MAN_DIR_PREFERRED="/usr/local/share/man"
 		MAN_DIR_ALT="/usr/share/man"
 
-		# test for man-db package
 		if has_cmd manpath; then
 			MANPATH_DIRS="$(manpath -g | tr : "$CHAR_NL")"
 			if echo "$MANPATH_DIRS" | grep -q "$MAN_DIR_PREFERRED"; then
@@ -387,7 +360,11 @@ set_provii_man() {
 			fi
 
 		else
-			warn 'Package not installed: man-db. No man pages will be downloaded.'
+			if has_package 'man-db'; then
+				PROVII_MAN="$MAN_DIR_ALT"
+			else
+				warn 'Package not installed: man-db. Failed to set $BASH_COMP variable.'
+			fi
 		fi
 		;;
 	user)
@@ -397,7 +374,6 @@ set_provii_man() {
 		}
 		MAN_DIR_PREFERRED="${XDG_DATA_HOME:-$HOME/.local/share}/man"
 
-		# test for man-db package
 		if has_cmd manpath; then
 			MANPATH_DIRS="$(manpath | tr ":" "$CHAR_NL")"
 			if echo "$MANPATH_DIRS" | grep -q "$MAN_DIR_PREFERRED"; then
@@ -410,13 +386,16 @@ set_provii_man() {
 				echo "MANDATORY_MANPATH $PROVII_MAN" >"$HOME/.manpath"
 			fi
 		else
-			warn 'Package not installed: man-db. No man pages will be downloaded.'
+			if has_package man-db; then
+				# else, add MAN_DIR_PREFERRED to manpath
+				PROVII_MAN="${XDG_DATA_HOME:-$HOME/.local/share}/man"
+				echo "MANDATORY_MANPATH $PROVII_MAN" >"$HOME/.manpath"
+			else
+				warn 'Package not installed: man-db. Failed to set $BASH_COMP variable.'
+			fi
 		fi
 		;;
 	esac
-
-	# if $PROVII_MAN was set, then the man-db package is on this machine,
-	# and man should work, so lets ensure the directories exists
 	if [ -n "$PROVII_MAN" ]; then
 		create_dir "$PROVII_MAN"/man1
 		create_dir "$PROVII_MAN"/man5
@@ -474,86 +453,82 @@ done' "$PROVII_BASH_COMP" >>"$PROVII_BASH_CONFIG"
 	esac
 }
 
+
 set_provii_zsh_comp() {
 	if has_cmd zsh; then
 
 		case "${PROVII_SCOPE:?}" in
 		system)
-			ZSH_DIR="$(
-				zsh -c '
+			ZSH_DIR="$(zsh -c '
                 . /etc/zshrc &>/dev/null
                 echo $ZSH'
-			)"
-			SYSTEM_FPATH="$(
-				export CHAR_NL CHAR_SPCE
-				zsh -c '
+            )"
+			SYSTEM_FPATH="$( export CHAR_NL CHAR_SPCE; zsh -c '
                 . /etc/zshrc &>/dev/null
                 echo "$fpath" | tr $CHAR_SPCE $CHAR_NL'
-			)"
+            )"
 
-			ZSH_COMP_DEFAULT=/usr/local/share/zsh/site-functions
-			ZSH_COMP_FALLBACK=/usr/share/zsh/site-functions
-			ZSH_DIR_COMPS="$(printf '%s/completions' "$ZSH_DIR")"
-			ZSH_DIR_CUSTOM="$(printf '%s/custom' "$ZSH_DIR")"
+            ZSH_COMP_DEFAULT=/usr/local/share/zsh/site-functions
+            ZSH_COMP_FALLBACK=/usr/share/zsh/site-functions
+            ZSH_DIR_COMPS="$(printf '%s/completions' "$ZSH_DIR")"
+            ZSH_DIR_CUSTOM="$(printf '%s/custom' "$ZSH_DIR")"
 
-			case "$SYSTEM_FPATH" in
-			*$ZSH_DIR_COMPS*)
-				if ! echo "$ZSH_DIR" | grep -q "^$HOME"; then
-					PROVII_ZSH_COMP="$ZSH_DIR_COMPS"
-				fi
-				;;
-			*$ZSH_DIR_CUSTOM*)
-				if ! echo "$ZSH_DIR" | grep -q "^$HOME"; then
-					PROVII_ZSH_COMP="$ZSH_DIR_CUSTOM"
-				fi
-				;;
-			*$ZSH_COMP_DEFAULT*) PROVII_ZSH_COMP="$ZSH_DIR_DEFAULT" ;;
-			*) PROVII_ZSH_COMP="$ZSH_DIR_FALLBACK" ;;
-			esac
+            case "$SYSTEM_FPATH" in
+              *$ZSH_DIR_COMPS*) 
+                if ! echo "$ZSH_DIR" | grep -q "^$HOME"; then
+                  PROVII_ZSH_COMP="$ZSH_DIR_COMPS"
+                fi
+                ;;
+              *$ZSH_DIR_CUSTOM*) 
+                if ! echo "$ZSH_DIR" | grep -q "^$HOME"; then
+                  PROVII_ZSH_COMP="$ZSH_DIR_CUSTOM"
+                fi
+                ;;
+              *$ZSH_COMP_DEFAULT*) PROVII_ZSH_COMP="$ZSH_DIR_DEFAULT" ;;
+              *) PROVII_ZSH_COMP="$ZSH_DIR_FALLBACK" ;;
+            esac
 			;;
 
 		user)
-			USER_FPATH="$(
-				export CHAR_NL CHAR_SPCE
-				zsh -c '
+			USER_FPATH="$(export CHAR_NL CHAR_SPCE; zsh -c '
               . /etc/zshrc &>/dev/null
               . ${ZDOTDIR:-$HOME}/.zshrc &>/dev/null
               echo "$fpath" | tr $CHAR_SPCE $CHAR_NL'
-			)"
-			ZDOTDIR="$(
-				zsh -c '
+            )"
+			ZDOTDIR="$( zsh -c '
               . /etc/zshrc &>/dev/null
               . ${ZDOTDIR:-$HOME}/.zshrc &>/dev/null
               echo ${ZDOTDIR:-$HOME}'
-			)"
+            )"
 
-			# leave without setting PROVII_ZSH_COMP if no dirs
-			# in fpath located in user's home directory
+            # leave without setting PROVII_ZSH_COMP if no dirs
+            # in fpath located in user's home directory
 			if echo "$USER_FPATH" | grep -m1 '^$HOME'; then
-				USER_FPATH="$(echo "$USER_FPATH" | grep -m1 '^$HOME')"
-				ZDOTDIR_COMPS="$(printf '%s/completions' "$ZDOTDIR")"
-				ZDOTDIR_CUSTOM="$(printf '%s/custom' "$ZDOTDIR")"
-				ZSH_COMP_DEFAULT="$(echo "$USER_FPATH" | grep -m1 "^$HOME")"
+                USER_FPATH="$(echo "$USER_FPATH" | grep -m1 '^$HOME')"
+                ZDOTDIR_COMPS="$(printf '%s/completions' "$ZDOTDIR")"
+                ZDOTDIR_CUSTOM="$(printf '%s/custom' "$ZDOTDIR")"
+                ZSH_COMP_DEFAULT="$(echo "$USER_FPATH" | grep -m1 "^$HOME")"
 
-				case "$USER_FPATH" in
-				*$ZDOTDIR_COMPS*) PROVII_ZSH_COMP="$ZDOTDIR_COMPS" ;;
-				*$ZDOTDIR_CUSTOM*) PROVII_ZSH_COMP="$ZDOTDIR_CUSTOM" ;;
-				*) PROVII_ZSH_COMP="$ZSH_COMP_DEFAULT" ;;
-				esac
-			fi
+                case "$USER_FPATH" in
+                  *$ZDOTDIR_COMPS*) PROVII_ZSH_COMP="$ZDOTDIR_COMPS" ;;
+                  *$ZDOTDIR_CUSTOM*) PROVII_ZSH_COMP="$ZDOTDIR_CUSTOM" ;;
+                  *) PROVII_ZSH_COMP="$ZSH_COMP_DEFAULT" ;;
+                esac
+            fi
 			;;
 		esac
 
-		${PROVII_ZSH_COMP:+$(create_dir "$PROVII_ZSH_COMP")}
-	fi
+        ${PROVII_ZSH_COMP:+`create_dir "$PROVII_ZSH_COMP"`}
+  fi
 }
 
 set_provii_libc() {
-	if command -v ldd &>/dev/null; then
+	if command -v ldd >/dev/null 2>&1; then
 		LDD_OUTPUT="$(
-			ldd --version 2>&1 | paste -d' ' -s | tr "[:upper:]" "[:lower:]"
+			ldd --version 2>/dev/null \
+				| head -1 \
+				| tr "[:upper:]" "[:lower:]"
 		)"
-		[[ "$VERBOSE" ]] && echo "$LDD_OUTPUT"
 		case "$LDD_OUTPUT" in
 		*musl*) PROVII_LIBC=musl ;;
 		*gnu* | *glibc*) PROVII_LIBC=gnu ;;
@@ -584,12 +559,12 @@ set_provii_scope() {
 get_installer() {
 	GITHUB_API_QUERY="$(
 		printf 'https://api.github.com%s%s' \
-			"/repos/$PROVII_REPO/contents/installs/$INSTALLER" \
+			"/repos/kriipke/provii/contents/installs/$INSTALLER" \
 			"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}"
 	)"
-	curl -sSL "$GITHUB_API_QUERY" |
-		"$JQ" '.download_url' |
-		xargs curl -sSL
+	curl -sSL "$GITHUB_API_QUERY" \
+		| "$JQ" '.download_url' \
+		| xargs curl -sSL
 }
 
 # TO-DO: account for the fact that $BIN is not referenced when using install fn
@@ -598,15 +573,15 @@ get_installer_vars() {
 		"Installation script has not been downloaded yet"
 
 	VARS_RE="$(printf %s "$PROVII_VARS" | sed -E 's/(\\[(|])/\1$/g')"
-	printf '\n%s' "$(echo "$INSTALLATION_SCRIPT" | grep -o "$VARS_RE")" |
-		sort | uniq
+	printf '\n%s' "$(echo "$INSTALLATION_SCRIPT" | grep -o "$VARS_RE")" \
+		| sort | uniq
 }
 
 show_installer_targets() {
 	_INSTALLER_VARS="$(get_installer_vars "$INSTALLER")"
-
-	SRC_DST=$(echo "$INSTALLATION_SCRIPT" |
-		awk -e '/install.*\$BIN/ {printf "%s,%s\n", $2, gensub(/^.*"?\$BIN\/?(.*)$/,"\1","g")}')
+	
+	SRC_DST=$(echo "$INSTALLATION_SCRIPT" \
+		| awk -e '/install.*\$BIN/ {printf "%s,%s\n", $2, gensub(/^.*"?\$BIN\/?(.*)$/,"\1","g")}')
 
 	target_exe=''
 	for line in $SRC_DST; do
@@ -614,7 +589,7 @@ show_installer_targets() {
 		DST_PATH="${line#,*}"
 		SRC_FILE="${SRC_PATH##*/}"
 		DST_FILE="${DST_PATH##*/}"
-
+		
 		output_line="$(
 			printf "%s,%s/%s" "$(style VAR "EXECUTABLE")" \
 				"$PROVII_BIN" "${DST_FILE:-$SRC_FILE}"
@@ -623,8 +598,8 @@ show_installer_targets() {
 	done
 
 	if [ "$PROVII_MAN" ] && echo "$_INSTALLER_VARS" | grep -q '$MAN'; then
-		SRC_DST=$(echo "$INSTALLATION_SCRIPT" |
-			awk -e '/cp.*\$MAN/ {printf "%s,%s\n", $2, gensub(/^.*"?\$MAN\/?(.*)$/,"\1","g")}')
+		SRC_DST=$(echo "$INSTALLATION_SCRIPT" \
+			| awk -e '/cp.*\$MAN/ {printf "%s,%s\n", $2, gensub(/^.*"?\$MAN\/?(.*)$/,"\1","g")}')
 
 		target_man=''
 		for line in $SRC_DST; do
@@ -680,7 +655,7 @@ show_installer_targets() {
 	)"
 
 	printf "$header_fmt" "$INSTALLER"
-	printf %s\\n "$target_dirs" | tr ',' '\t'
+	printf %s\\n "$target_dirs" | column -t -s,
 
 	if [ "$INTERACTIVE" ]; then
 		prompt 'Press Enter to continue.'
@@ -690,7 +665,7 @@ show_installer_targets() {
 
 ls_installers() {
 	GITHUB_QUERY_LS="$(printf \
-		"https://api.github.com/repos/$PROVII_REPO/contents/installs%s" \
+		"https://api.github.com/repos/kriipke/provii/contents/installs%s" \
 		"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}")"
 	JQ_QUERY='.[] | [ .name, .download_url ] | @csv'
 
@@ -758,7 +733,6 @@ ASSET_URL=$( echo "$ASSETS" | "$JQ" -r "$JQ_CMD" )
 
 # if asset not found, search search using compatible architectures
 if [ -z "$ASSET_URL" ]; then
-echo arch $ARCH 
 	case "$ARCH" in
 		*amd64*)
 			ALT_RE_1="${RE//amd64/x86_64}" ;;
@@ -802,13 +776,13 @@ if [ -z "$ASSET_URL" ]; then
 		*x86_64*)
 			ALT_RE_2="${RE//x86_64/"$re64"}" ;;
 		aarch64)
-			ALT_RE_2="${RE//aarch64/arm8}" ;;
+			ALT_RE_2="${RE//aarch64/"$re64"}" ;;
 		aarch64_be)
-			ALT_RE_2="${RE//aarch64_be/arm8}" ;;
+			ALT_RE_2="${RE//aarch64_be/"$re64"}" ;;
 		armv8b)
-			ALT_RE_2="${RE//armv8b/arm8}" ;;
+			ALT_RE_2="${RE//armv8b/"$re64"}" ;;
 		armv8l)
-			ALT_RE_2="${RE//armv8l/arm8}" ;;
+			ALT_RE_2="${RE//armv8l/"$re64"}" ;;
 		*i386*)
 			ALT_RE_2="${RE//i386/"$re32"}" ;;
 		*i586*)
@@ -1010,7 +984,7 @@ set | grep -e ^NAME -e ^SCOPE -e ^OS -e ^ARCH -e ^LIBC \
 				vars[$1] = $2
 			}
 			END {
-				fmt_hdr=sprintf("\n%s%%s%%15s%s\n\n", style_hdr,  no_style)
+				fmt_hdr=sprintf("\n%s%%s%%*s%s\n\n", style_hdr,  no_style)
 
 				max_width_1 = 0
 				max_width_2 = 0
@@ -1085,8 +1059,8 @@ run_installer() {
 		${STYLE_ERROR:+STYLE_ERROR="$MAGENTA"} \
 		${CYAN:+CYAN="$CYAN"} \
 		${STYLE_RESET:+STYLE_RESET="$STYLE_RESET"} \
+		${PS4:+PS4="$(tput ht)$(tput ht)$(tput setaf 6)$INSTALLER "'$LINENO $FUNCNAME'" :: $(tput sgr 0)"} \
 		${VERBOSE:+VERBOSE="$VERBOSE"} \
-		PS4='$(printf "%s%20.5f @line %7i\\tf:%-30s\\t\\t\\t%s" "$CYAN" "$(date "+%s.%N")" "$LINENO" "${FUNCNAME:-main}" "$STYLE_RESET")' \
 		_ERROR_PREFIX="$_ERROR_PREFIX" \
 		_ERROR_SPACER="$_ERROR_SPACER" \
 		STYLE_VARS="$STYLE_VARS" \
@@ -1139,173 +1113,158 @@ install() {
 	run_installer "$INSTALLATION_SCRIPT"
 }
 
-main() {
+if has_cmd jq; then
+	JQ="$(command -v jq)"
+elif test -f "$JQ_TARGET_DIR/jq"; then
+	JQ="$JQ_TARGET_DIR/jq"
+else
+	install_jq
+	JQ="$JQ_TARGET_DIR/jq"
+fi
 
-	if has_cmd jq; then
-		JQ="$(command -v jq)"
-	elif test -f "$JQ_TARGET_DIR/jq"; then
-		JQ="$JQ_TARGET_DIR/jq"
-	else
-		install_jq
-		JQ="$JQ_TARGET_DIR/jq"
-	fi
+# TO-DO: install unzip binary if needed https://oss.oracle.com/el4/unzip/unzip.tar
 
-	# TO-DO: install unzip binary if needed https://oss.oracle.com/el4/unzip/unzip.tar
+if [ "$(basename "$0")" != 'provii' ]; then
+	INSTALLER="$(basename "$0")"
+	gather_facts
+	INSTALLATION_SCRIPT="$(get_installer)"
+	show_installer_targets
+	run_installer "$INSTALLATION_SCRIPT"
+	exit
+fi
 
-	# This will account for when the script is run by being downloaded
-	# and piped directly into bash e.g.curl http://script.uri/ | bash -
-	# instead of being run like ./provii install exampleapp÷
+if [ "$#" -eq 0 ]; then
+	print_usage
+fi
 
-	if [ "$(basename "$0")" != 'provii' ]; then
-		INSTALLER="$(basename "$0")"
+check_current_version
+
+cmd="$1"
+shift
+
+case "$cmd" in
+install)
+	while :; do
+		case "$1" in
+		-v) VERBOSE=1 ;;
+		-i) INTERACTIVE=1 ;;
+		-h) print_usage ;;
+		-b)
+			shift
+			PROVII_BRANCH="$1"
+			;;
+		--)
+			shift
+			break
+			;;
+		-*) usage_error 'install' "bad argument $1" ;;
+		*) break ;;
+		esac
+		shift
+	done
+	for APP in "$@"; do
+		INSTALLER="$APP"
 		gather_facts
 		INSTALLATION_SCRIPT="$(get_installer)"
 		show_installer_targets
 		run_installer "$INSTALLATION_SCRIPT"
-		exit
-	fi
-
-	check_current_version
-
-	if [ "$#" -eq 0 ]; then
-		print_usage
-	fi
-
-	cmd="$1"
-	shift
-
-	case "$cmd" in
-	install)
-		while :; do
-			case "$1" in
-			-v) VERBOSE=1 ;;
-			-i) INTERACTIVE=1 ;;
-			-h) print_usage ;;
-			-b)
-				shift
-				PROVII_BRANCH="$1"
-				;;
-			--)
-				shift
-				break
-				;;
-			-*) usage_error 'install' "bad argument $1" ;;
-			*) break ;;
-			esac
-			shift
-		done
-		for APP in "$@"; do
-			INSTALLER="$APP"
-			gather_facts
-			INSTALLATION_SCRIPT="$(get_installer)"
-			show_installer_targets
-			run_installer "$INSTALLATION_SCRIPT"
-		done
-		;;
-	log)
-		while :; do
-			case "$1" in
-			-h) print_usage ;;
-			-*) print_usage ;;
-			*)
-				[ $# -gt 1 ] && print_usage
-				break
-				;;
-			esac
-			shift
-		done
-		set_provii_log
-		if [ "$1" ]; then
-			column -t "$PROVII_LOG" | sort | awk -v app="$1" '$3 == app'
-		else
-			column -t "$PROVII_LOG" | sort
-		fi
-		;;
-	ls)
-		while :; do
-			case "$1" in
-			-h) print_usage ;;
-			-*) print_usage ;;
-			*) break ;;
-			esac
-			shift
-		done
-		ls_installers
-		;;
-	env)
-		while :; do
-			case "$1" in
-			-h) print_usage ;;
-			-*) print_usage ;;
-			*) break ;;
-			esac
-			shift
-		done
-		[ -n "$1" ] && INSTALLER="$1"
-		gather_facts
-		run_installer "$PRINT_VARIABLES"
-		;;
-	cat)
-		while :; do
-			case "$1" in
-			-h) print_usage ;;
-			-b)
-				shift
-				PROVII_BRANCH="$1"
-				;;
-			-*) print_usage ;;
-			*) break ;;
-			esac
-			shift
-		done
-		INSTALLER="$1"
-		if has_cmd bat; then
-			get_installer | bat --style=grid,numbers --language="bash"
-		else
-			get_installer
-		fi
-		;;
-	rm)
-		while :; do
-			case "$1" in
-			-h) print_usage ;;
-			-i) INTERACTIVE=1 ;;
-			-*) usage_error 'cat' "bad argument $1" ;;
-			*) break ;;
-			esac
-			shift
-		done
-		rm_app "$1"
-		;;
-	wipe)
-		APPS_INSTALLED="$(awk '{print $3}' ~/.provii.log | sort | uniq)"
-
-		printf "\n%sWARNING%s: ABOUT TO PERMENANTLY REMOVE ALL APPS. USE WITH CAUTION.\n\n" "$MAGENTA" "$STYLE_RESET"
-
-		tabs -8
-		echo "$APPS_INSTALLED" | column -c 80 -x | style FILE
-
-		printf \\n\\n%s\  'Continue? [y|N]' | prompt
-		read -r
-		case "$REPLY" in
-		[Yy]*)
-			for app in $APPS_INSTALLED; do
-				printf '\t%sRemoving:%s %s\n' "$STYLE_ECHO" "$STYLE_RESET" "$app"
-			done
-			;;
+	done
+	;;
+log)
+	while :; do
+		case "$1" in
+		-h) print_usage ;;
+		-*) print_usage ;;
 		*)
-			echo "Exiting without removing any files."
-			exit
+			[ $# -gt 1 ] && print_usage
+			break
 			;;
 		esac
+		shift
+	done
+	set_provii_log
+	if [ "$1" ]; then
+		column -t "$PROVII_LOG" | sort | awk -v app="$1" '$3 == app'
+	else
+		column -t "$PROVII_LOG" | sort
+	fi
+	;;
+ls)
+	while :; do
+		case "$1" in
+		-h) print_usage ;;
+		-*) print_usage ;;
+		*) break ;;
+		esac
+		shift
+	done
+	ls_installers
+	;;
+env)
+	while :; do
+		case "$1" in
+		-h) print_usage ;;
+		-*) print_usage ;;
+		*) break ;;
+		esac
+		shift
+	done
+	[ -n "$1" ] && INSTALLER="$1"
+	gather_facts
+	run_installer "$PRINT_VARIABLES"
+	;;
+cat)
+	while :; do
+		case "$1" in
+		-h) print_usage ;;
+		-b)
+			shift
+			PROVII_BRANCH="$1"
+			;;
+		-*) print_usage ;;
+		*) break ;;
+		esac
+		shift
+	done
+	INSTALLER="$1"
+	if has_cmd bat; then
+		get_installer | bat --style=grid,numbers --language="bash"
+	else
+		get_installer
+	fi
+	;;
+rm)
+	while :; do
+		case "$1" in
+		-h) print_usage ;;
+		-i) INTERACTIVE=1 ;;
+		-*) usage_error 'cat' "bad argument $1" ;;
+		*) break ;;
+		esac
+		shift
+	done
+	rm_app "$1"
+	;;
+wipe)
+	APPS_INSTALLED="$(awk '{print $3}' ~/.provii.log | sort | uniq)"
+
+	printf "\n%sWARNING%s: ABOUT TO PERMENANTLY REMOVE ALL APPS. USE WITH CAUTION.\n\n" "$MAGENTA" "$STYLE_RESET"
+
+	tabs -8
+	echo "$APPS_INSTALLED" | column -c 80 -x | style FILE
+
+	printf \\n\\n%s\  'Continue? [y|N]' | prompt
+	read -r
+	case "$REPLY" in
+	[Yy]*)
+		for app in $APPS_INSTALLED; do
+			printf '\t%sRemoving:%s %s\n' "$STYLE_ECHO" "$STYLE_RESET" "$app"
+		done
+		;;
+	*)
+		echo "Exiting without removing any files."
+		exit
 		;;
 	esac
-}
-
-# check to see if provii is being sourced
-# or if it is being executed asa script
-is_sourced
-echo $SOURCED
-if [[ ! $SOURCED ]]; then
-	main "$@"
-fi
+	;;
+esac
