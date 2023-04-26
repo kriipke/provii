@@ -34,8 +34,8 @@ rm -rf $RPM_BUILD_ROOT
 %license LICENSE
 
 %changelog
-* Tue Apr 18 2023 kriipke
-- initial release
-
 * Wed Apr 26 2023 kriipke
 - configured spec file for use with GitHub Actions to automate building of RPM
+
+* Tue Apr 18 2023 kriipke
+- initial release
