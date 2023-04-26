@@ -2,7 +2,7 @@
 
 ++++
 <p align="center">
-  <img width="300" height="300" src="src/share/provii.png">
+  <img width="300" height="300" src="share/provii.png">
 </p>
 ++++
 
