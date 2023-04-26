@@ -45,6 +45,17 @@ All the softwares installed via provii come *directly from their authors*, e.g. 
 
 TIP: _If you would like to add your piece of software to the list of installers avaliable via provii, either make a pull request or contact me._
 
+== Installation
+
+There is also `.deb` and `.rpm` packages available for install like so:
+
+  # Fedora-based distributions
+  dnf install -y https://github.com/kriipke/provii/releases/download/0.3.1/provii-0.3.1-1.el7.noarch.rpm
+
+  # Debian-based distributions
+  apt install -y https://github.com/kriipke/provii/releases/download/0.3.1/provii_0.3.1-1.el7_all.deb
+
+
 == Usage
 
 === Method 1: curl `provii` directly into bash
@@ -101,6 +112,7 @@ image::share/provii_cat.png[provii cat fd]
 Note that unless you are writing a provii installer yourself or are doing debugging, you really don't need to know anything about the script or how it works unless you just want to make sure you're not running anything malicious.
 
 For more information, run `provii cat -h`.
+
 
 == How `provii` works
 `provii` works by gathering the necessary information about the system its running on to install the pre-built binary (as well as man pages & shell completions if available), and then fetching & running the appropriate installion scripts hosted in provii's github repository in the link:https://github.com/kriipke/provii/tree/master/installs[installs directory].
