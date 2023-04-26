@@ -1,14 +1,14 @@
 = provii
 :doctype: article
 :description: A README template written in AsciiDoc markup
-ifdef::env-github[]
-:tip-caption: :rocket:
 :toc: macro
 :toclevels: 3
+:toc: preamble
+:imagesdir: docs/images
+ifdef::env-github[]
+:tip-caption: :rocket:
 :!showtitle:
 :icons: font
-:toc: preamble
-:imagesdir: share/images
 
 ++++
 <p align="center">
@@ -28,18 +28,6 @@ ifdef::env-github[]
 </p>
 <br/>
 ++++
-
-// This conditional section applies to all environments, except GitHub
-ifndef::env-github[]
-image::placeholder-logo.png[Logo, align=center, width=30%]
-[.text-center]
-[.lead]
-*{doctitle}*
-
-[.text-center]
-_{description}_ +
-{documentation-url}[Explore the docs »]
-endif::[]
 
 `provii` is an extremely light-weight provisioning tool that aims to be a pseudo-packagemanager for modern command line tools. It allows you to painlessly download your favorite command-line utilities as pre-compiled binaries on a machine that that may be missing them in the blink of an eye. 
 
