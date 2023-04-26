@@ -3,7 +3,7 @@ Version:        0.3.1
 Release:        1%{?dist}
 Summary:        provii is a portable binary cli tool downloader.
 
-License:        GPL 
+License:        GPLv3
 URL:            https://github.com/kriipke/provii
 Source0:        %{name}-%{version}.tar.gz
 
