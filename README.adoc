@@ -22,6 +22,12 @@ For example, during a typical install of `fd`, an alternative to the `find` tool
 
 For more information on where these files are installed and how that location is determined see <<Environment>> and <<How provii works,How `provii` works>> below.
 
+++++
+<p align="center">
+  <img width="600" height="600" src="share/demo.svg">
+</p>
+++++
+
 [NOTE]
 ====
 All the softwares installed via provii come *directly from their authors*, e.g. the official Github repository or the official SourceForge page. So you can feel as safe installing all these softwares using provii as you would going to the project's home page and downloading them yourself.
