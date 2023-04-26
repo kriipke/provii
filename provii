@@ -133,40 +133,43 @@ prompt() {
 #  installs jq to $HOME/.local/bin/jq, where it will be looked
 #- for in the event that it cannot be found by searching $PATH
 install_jq() {
-	JQ_VERSION="1.6"
-	JQ_URL="https://github.com/stedolan/jq/releases/download/jq-$JQ_VERSION"
-	JQ_TARGET_DIR="${JQ_TARGET_DIR:-$HOME/.local/bin}"
+        JQ_VERSION="1.6"
+        JQ_URL="https://github.com/stedolan/jq/releases/download/jq-$JQ_VERSION"
+        JQ_TARGET_DIR="${JQ_TARGET_DIR:-$HOME/.local/bin}"
 
-	set_provii_os
-	set_provii_arch
+        set_provii_os
+        set_provii_arch
 
-	if [ "$PROVII_OS" = 'darwin' ]; then
-		JQ_FILE="jq-osx-amd64"
-	else
-		case "$PROVII_ARCH" in
-		x86_64 | amd64 | aarch64)
-			JQ_FILE="jq-linux64"
-			;;
-		i386 | i586 | i686)
-			JQ_FILE="jq-linux32"
-			;;
-		esac
-	fi
+        if [ "$PROVII_OS" = 'darwin' ]; then
+                JQ_FILE="jq-osx-amd64"
+        else
+                case "$PROVII_ARCH" in
+                x86_64 | amd64 )
+                        JQ_FILE="jq-linux64"
+                        ;;
+                arch64 )
+                        curl -sSLo "$JQ_TARGET_DIR/jq" https://dl.spencersmolen.com/linux/aarch64/jq
+                        return 0
+                        ;;
+                i386 | i586 | i686)
+                        JQ_FILE="jq-linux32"
+                        ;;
+                esac
+        fi
 
-	[ -d "$JQ_TARGET_DIR" ] || create_dir "$JQ_TARGET_DIR"
-	curl -sSLo "$JQ_TARGET_DIR/jq" "$JQ_URL/$JQ_FILE"
-	chmod ug+rx "$JQ_TARGET_DIR/jq"
+        [ -d "$JQ_TARGET_DIR" ] || create_dir "$JQ_TARGET_DIR"
+        curl -sSLo "$JQ_TARGET_DIR/jq" "$JQ_URL/$JQ_FILE"
+        chmod ug+rx "$JQ_TARGET_DIR/jq"
 
-	JQ="$JQ_TARGET_DIR/jq"
-	export JQ
+        JQ="$JQ_TARGET_DIR/jq"
+        export JQ
 
-	if [ -z "$JQ" ]; then
-		err 'Function install_jq failed to set $JQ to path of jq.'
-	else
-		return 0
-	fi
+        if [ -z "$JQ" ]; then
+                err 'Function install_jq failed to set $JQ to path of jq.'
+        else
+                return 0
+        fi
 }
-
 source_proviirc() {
 	if [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/proviirc" ]; then
 		PROVIIRC="${XDG_CONFIG_HOME-$HOME/.config}/proviirc"
@@ -559,15 +562,7 @@ set_provii_scope() {
 get_installer() {
 	GITHUB_API_QUERY="$(
 		printf 'https://api.github.com%s%s' \
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream:src/provii
-			"/repos/kriipke/provii/contents/installs/$INSTALLER" \
-=======
 			"/repos/$PROVII_REPO/contents/repository/$INSTALLER" \
->>>>>>> Stashed changes:provii
-=======
-			"/repos/$PROVII_REPO/contents/repository/$INSTALLER" \
->>>>>>> Stashed changes
 			"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}"
 	)"
 	curl -sSL "$GITHUB_API_QUERY" \
@@ -673,15 +668,7 @@ show_installer_targets() {
 
 ls_installers() {
 	GITHUB_QUERY_LS="$(printf \
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream:src/provii
-		"https://api.github.com/repos/kriipke/provii/contents/installs%s" \
-=======
 		"https://api.github.com/repos/$PROVII_REPO/contents/repository%s" \
->>>>>>> Stashed changes:provii
-=======
-		"https://api.github.com/repos/$PROVII_REPO/contents/repository%s" \
->>>>>>> Stashed changes
 		"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}")"
 	JQ_QUERY='.[] | [ .name, .download_url ] | @csv'
 
