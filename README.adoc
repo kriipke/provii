@@ -1,17 +1,45 @@
 = provii
+:doctype: article
+:description: A README template written in AsciiDoc markup
 ifdef::env-github[]
 :tip-caption: :rocket:
+:toc: macro
+:toclevels: 3
+:!showtitle:
+:icons: font
+:toc: preamble
+:imagesdir: assets/images
 
 ++++
 <p align="center">
-  <img width="300" height="300" src="share/provii.png">
+  <img width="275" height="275" src="share/provii.png">
 </p>
 <p align="center">
-  <img src="https://img.shields.io/badge/github%20actions-%232671E5.svg?style=for-the-badge&logo=githubactions&logoColor=white">
-  <img src="https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black">
-  <img src="https://img.shields.io/badge/shell_script-%23121011.svg?style=for-the-badge&logo=gnu-bash&logoColor=white">
+    <h1 align="center">provii</h1>
+  
+  
+    <!-- REPLACE THE FOLLOWING WITH YOUR REPOSITORY/PROJECT'S SHORT DESCRIPTION -->
+    <h3 align="center">a lightweight cli power tool installer</h3>
+        <p align="center">
+      <img height=20 src="https://img.shields.io/badge/github%20actions-%232671E5.svg?style=for-the-badge&logo=githubactions&logoColor=white">
+  <img height=20 src="https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black">
+  <img height=20 src="https://img.shields.io/badge/shell_script-%23121011.svg?style=for-the-badge&logo=gnu-bash&logoColor=white">
+
 </p>
+<br/>
 ++++
+
+// This conditional section applies to all environments, except GitHub
+ifndef::env-github[]
+image::placeholder-logo.png[Logo, align=center, width=30%]
+[.text-center]
+[.lead]
+*{doctitle}*
+
+[.text-center]
+_{description}_ +
+{documentation-url}[Explore the docs »]
+endif::[]
 
 `provii` is an extremely light-weight provisioning tool that aims to be a pseudo-packagemanager for modern command line tools. It allows you to painlessly download your favorite command-line utilities as pre-compiled binaries on a machine that that may be missing them in the blink of an eye. 
 
@@ -23,16 +51,13 @@ The beauty of `provii` is that it is a single shell script. You can download it 
 
 The list of available installers be found by typing  <<provii ls,`provii ls`>> or by browsing link:https://github.com/kriipke/provii/tree/master/installs[here].
 
+toc::[]
+
 ++++
 <p align="center">
-  <img width="600" height="600" src="share/demo.svg">
+  <img width="550" height="550" src="share/demo.svg">
 </p>
 ++++
-
-[NOTE]
-====
-All the softwares installed via provii come *directly from their authors*, e.g. the official Github repository or the official SourceForge page. So you can feel as safe installing all these softwares using provii as you would going to the project's home page and downloading them yourself.
-====
 
 `provii` was designed with 3 goals:
 
@@ -46,17 +71,6 @@ All the softwares installed via provii come *directly from their authors*, e.g. 
 TIP: _If you would like to add your piece of software to the list of installers avaliable via provii, either make a pull request or contact me._
 
 == Installation
-
-There is also `.deb` and `.rpm` packages available for install like so:
-
-  # Fedora-based distributions
-  dnf install -y https://github.com/kriipke/provii/releases/download/0.3.1/provii-0.3.1-1.el7.noarch.rpm
-
-  # Debian-based distributions
-  apt install -y https://github.com/kriipke/provii/releases/download/0.3.1/provii_0.3.1-1.el7_all.deb
-
-
-== Usage
 
 === Method 1: curl `provii` directly into bash
 
@@ -72,6 +86,152 @@ The best part about running provii this way is that after the installation of a 
 === Method 2: download `provii` and place in `$PATH`
 
 If you choose to download provii you will be afforded a few more features, mostly geared towards previewing the changes that will be made before running an installation. Once downloaded, the subcommands below will be available.
+There is also `.deb` and `.rpm` packages available for install like so:
+
+=== Method 3: using the `.rpm` or `.deb` packages
+
+  # Fedora-based distributions
+  dnf install -y https://github.com/kriipke/provii/releases/download/0.3.1/provii-0.3.1-1.el7.noarch.rpm
+
+  # Debian-based distributions
+  apt install -y https://github.com/kriipke/provii/releases/download/0.3.1/provii_0.3.1-1.el7_all.deb
+
+
+== Usage
+
+== `man` page
+
+[source]
+----
+	PROVII(1)                        provii manual                       PROVII(1)
+
+
+
+	NAME
+	       provii  - minimalist command-line utility installer & provisioning tool
+
+
+	SYNOPSIS
+	       provii install [-vi] APPLICATION ...
+	       provii env [APPLICATION]
+	       provii cat APPLICATION
+	       provii ls
+
+
+	DESCRIPTION
+	       provii is a provisioning tool to painlessly download your favorite com‐
+	       mand-line utilities as pre-compiled binaries on a machine that that may
+	       be  missing  them.  It is a convenient alternative when you do not have
+	       the premissions required to install software using the systems  package
+	       manager or when you do not wish to install the software system-wide.
+
+
+	STANDARD OPTIONS
+	       -b     Choose  the git branch that provii uses to fetch   installer in‐
+		      formation.
+
+
+	       -i     Ask user for confirm before any changes  to  the  system  before
+		      they are made.
+
+
+	       -v     Print extra information to standard out during runtime.
+
+
+	       -h     Print help menu.
+
+
+	PROVII COMMANDS
+	       provii install
+		      Install the application or applications given as arguments.
+
+
+	       provii cat
+		      Print  the  installation  script that would be run by provii in‐
+		      stall for a given application.
+
+
+	       provii env
+		      Show the values for variables that will populate the environment
+		      in  which  the  installation script for the given application is
+		      run.
+
+
+	       provii ls
+		      List all avaliable  applications  that  can  be  installed  with
+		      provii.
+
+
+	ENVIRONMENT VARIABLES
+	       PROVII_LOG
+		      Location  of file to write logs of all files created during run‐
+		      time.
+
+	       PROVII_CACHE
+		      Path to directory used to  store  intermediatary  files  created
+		      during installation.  Cleared at the end of every installation.
+
+	       PROVII_SCOPE
+		      Can  be set to either "system" or "user" - used to determine the
+		      path to use for the installation directories  (unless  they  are
+		      given  explicitly  as  environment  variables or in the proviirc
+		      file).
+
+	       PROVII_USER_BIN
+		      Installation path for all executables (when PROVII_SCOPE=user).
+
+	       PROVII_USER_MAN
+		      Installation path for all MAN pages (when PROVII_SCOPE=user).
+
+	       PROVII_USER_ZSH_COMP
+		      Installation   path    for    all    ZSH    completions    (when
+		      PROVII_SCOPE=user & zsh installed).
+
+	       PROVII_USER_BASH_COMP
+		      Installation    path    for    all    BASH   completions   (when
+		      PROVII_SCOPE=user & bash-completion).
+
+	       PROVII_SYSTEM_BIN
+		      Installation path for all  executables  (when  PROVII_SCOPE=sys‐
+		      tem).
+
+	       PROVII_SYSTEM_MAN
+		      Installation path for all MAN pages (when PROVII_SCOPE=system).
+
+	       PROVII_SYSTEM_ZSH_COMP
+		      Installation    path    for    all    ZSH    completions   (when
+		      PROVII_SCOPE=system & zsh installed).
+
+	       PROVII_SYSTEM_BASH_COMP
+		      Installation   path   for    all    BASH    completions    (when
+		      PROVII_SCOPE=system & bash-completion installed).
+
+
+	FILES
+	       Configuration
+		      $XDG_CONFIG_HOME/proviirc
+		      $HOME/.config/proviirc
+
+
+	       Log    $HOME/.provii.log
+
+
+	HOMEPAGE
+	       https://github.com/kriipke/provii
+
+
+	BUGS
+	       No known bugs. File an issue report:
+	       https://github.com/kriipke/provii/issues
+
+
+	AUTHOR
+	       Spencer Smolen (mail@spencersmolen.com)
+
+
+
+	provii                            2020-11-01                         PROVII(1)
+----
 
 ==== `provii install`
 
