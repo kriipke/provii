@@ -16,4 +16,3 @@ jobs:
           DO_NAME: ${{ secrets.SPACE_NAME }}
           DO_REGION: nyc3
           DO_DIR: provii/latest
-          LOCAL_DIR: src
