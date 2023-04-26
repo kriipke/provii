@@ -559,7 +559,11 @@ set_provii_scope() {
 get_installer() {
 	GITHUB_API_QUERY="$(
 		printf 'https://api.github.com%s%s' \
+<<<<<<< Updated upstream:src/provii
 			"/repos/kriipke/provii/contents/installs/$INSTALLER" \
+=======
+			"/repos/$PROVII_REPO/contents/repository/$INSTALLER" \
+>>>>>>> Stashed changes:provii
 			"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}"
 	)"
 	curl -sSL "$GITHUB_API_QUERY" \
@@ -665,7 +669,11 @@ show_installer_targets() {
 
 ls_installers() {
 	GITHUB_QUERY_LS="$(printf \
+<<<<<<< Updated upstream:src/provii
 		"https://api.github.com/repos/kriipke/provii/contents/installs%s" \
+=======
+		"https://api.github.com/repos/$PROVII_REPO/contents/repository%s" \
+>>>>>>> Stashed changes:provii
 		"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}")"
 	JQ_QUERY='.[] | [ .name, .download_url ] | @csv'
 
