@@ -1,5 +1,5 @@
 Name:           provii
-Version:        0.1.0
+Version:        0.3.1
 Release:        1%{?dist}
 Summary:        provii is a portable binary cli tool downloader.
 
