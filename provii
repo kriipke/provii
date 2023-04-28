@@ -1,4 +1,6 @@
-#!/bin/sh -eE
+#!/bin/bash
+
+set -e 
 
 # Determines if the script was sourced or executed
 # This is mostly to determine whether to run any actions
@@ -1290,6 +1292,6 @@ esac
 
 # check to see if provii is being sourced
 # or if it is being executed asa script
-if [[ SOURCED -eq 0 ]]; then
+if [[ $SOURCED -eq 0 ]]; then
 	main "$@"
 fi
