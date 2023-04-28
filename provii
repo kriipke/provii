@@ -1,5 +1,11 @@
 #!/bin/sh -eE
 
+# Determines if the script was sourced or executed
+# This is mostly to determine whether to run any actions
+# as the bats unit tests require access to these functions
+SOURCED=0
+(return 0 2>/dev/null) && SOURCED=1 
+
 cleanup() {
 	if [ "$RESET_TABS" ]; then
 		tabs -8
@@ -15,7 +21,7 @@ if command -v tabs >/dev/null 2>&1; then
 fi
 
 PROVII_REPO=kriipke/provii
-PROVII_BRANCH=master
+PROVII_BRANCH=main
 PROVII_VERSION='0.3.0'
 CLEAN_CACHE_ON_EXIT=1
 #JQ_TARGET_DIR="$HOME/.local/bin"
@@ -56,24 +62,28 @@ check_current_version() {
 			echo "Update check failed! Failed to determine current provii release." ;;
 	esac
 }
-	
-if command -v tput >/dev/null 2>&1; then
-	TAB="$(tput ht 2>/dev/null || echo '')"
-	if [ $(($(tput colors 2>/dev/null))) -ge 8 ]; then
-		RED="$(tput setaf 3 2>/dev/null || echo '')"
-		MAGENTA="$(tput setaf 5 2>/dev/null || echo '')"
-		CYAN="$(tput setaf 6 2>/dev/null || echo '')"
-		UNDERLINE="$(tput smul 2>/dev/null || echo '')"
-		NO_UNDERLINE="$(tput rmul 2>/dev/null || echo '')"
-		STYLE_RESET="$(tput sgr0 2>/dev/null || echo '')"
-	fi
-	STYLE_ERROR="$MAGENTA"
-	STYLE_ECHO="$MAGENTA"
-	STYLE_VAR="$MAGENTA"
-	STYLE_FILES="$CYAN"
-	STYLE_HEADER="${UNDERLINE}${CYAN}"
-	STYLE_INFO="$RED"
-fi
+
+define_styles() {	
+  if command -v tput >/dev/null 2>&1; then
+  	TAB="$(tput ht 2>/dev/null || echo '')"
+  	if [ $(($(tput colors 2>/dev/null))) -ge 8 ]; then
+  		export RED="$(tput setaf 3 2>/dev/null || echo '')"
+  		export MAGENTA="$(tput setaf 5 2>/dev/null || echo '')"
+  		export CYAN="$(tput setaf 6 2>/dev/null || echo '')"
+  		export UNDERLINE="$(tput smul 2>/dev/null || echo '')"
+  		export NO_UNDERLINE="$(tput rmul 2>/dev/null || echo '')"
+  		export STYLE_RESET="$(tput sgr0 2>/dev/null || echo '')"
+  	fi
+  	export STYLE_ERROR="$MAGENTA"
+  	export STYLE_ECHO="$MAGENTA"
+  	export STYLE_VAR="$MAGENTA"
+  	export STYLE_FILES="$CYAN"
+  	export STYLE_HEADER="${UNDERLINE}${CYAN}"
+  	export STYLE_INFO="$RED"
+
+	$STYLE_RESET
+  fi
+}
 
 _help='
 provii - command line utility installer
@@ -1116,6 +1126,11 @@ install() {
 	run_installer "$INSTALLATION_SCRIPT"
 }
 
+
+main() {
+
+define_styles
+
 if has_cmd jq; then
 	JQ="$(command -v jq)"
 elif test -f "$JQ_TARGET_DIR/jq"; then
@@ -1140,8 +1155,7 @@ if [ "$#" -eq 0 ]; then
 	print_usage
 fi
 
-check_current_version
-
+# check_current_version
 cmd="$1"
 shift
 
@@ -1271,3 +1285,11 @@ wipe)
 	esac
 	;;
 esac
+}
+
+
+# check to see if provii is being sourced
+# or if it is being executed asa script
+if [[ SOURCED -eq 0 ]]; then
+	main "$@"
+fi
