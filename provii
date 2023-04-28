@@ -160,12 +160,12 @@ install_jq() {
                 JQ_FILE="jq-osx-amd64"
         else
                 case "$PROVII_ARCH" in
-                x86_64 | amd64 )
-                        JQ_FILE="jq-linux64"
-                        ;;
-                arch64 )
+                aarch64 )
                         curl -sSLo "$JQ_TARGET_DIR/jq" https://dl.spencersmolen.com/linux/aarch64/jq
                         return 0
+                        ;;
+                x86_64 | amd64 )
+                        JQ_FILE="jq-linux64"
                         ;;
                 i386 | i586 | i686)
                         JQ_FILE="jq-linux32"
