@@ -37,7 +37,11 @@ if [ "$DEBUG" ]; then
 	set -x
 	unset CLEAN_CACHE_EXIT_ON
 	VERBOSE=1
-	PS4='+ $(date "+%s.%N")\011 @line $LINENO\011'
+	if command -v tput &>/dev/null; then
+		PS4='$(tput setaf 4)$(printf "%-12s\\t%.3fs\\t@line\\t%-10s" $(date +%T) $(echo $(date "+%s.%3N")-'$(date "+%s.%3N")' | bc ) $LINENO)$(tput sgr 0)'
+	else
+		PS4='$$(printf "%-12s\\t%.3fs\\t@line\\t%-10s" $(date +%T) $(echo $(date "+%s.%3N")-'$(date "+%s.%3N")' | bc ) $LINENO)'
+	fi
 fi
 
 PROVII_VARS='\(OS\|SCOPE\|LIBC\|BASH_COMP\|ZSH_COMP\|MAN\|NAME\|CACHE\|ARCH\|BIN\|LOG\)'
@@ -83,7 +87,7 @@ define_styles() {
   	export STYLE_HEADER="${UNDERLINE}${CYAN}"
   	export STYLE_INFO="$RED"
 
-	$STYLE_RESET
+	tput sgr0 || true
   fi
 }
 
