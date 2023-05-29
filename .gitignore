@@ -18,3 +18,6 @@ Sessionx.vim
 tags
 # Persistent undo
 [._]*.un~
+*/.DS_Store
+test/vms/.DS_Store
+.DS_Store
