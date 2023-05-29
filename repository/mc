@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Powerful cli client for Minio
+# https://github.com/minio/mc
+
+URL_FQDN='https://dl.min.io'
+URL_DIRS="/client/mc/release/${OS}-${ARCH}/"
+URL_FILE='mc'
+
+URL=$(printf 'https://%s/%s/%s' $URL_{FQDN,DIRS,FILE})
+curl -#LO $URL
+
+install mc $BIN/
