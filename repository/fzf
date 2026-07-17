@@ -3,7 +3,9 @@
 # a command-line fuzzy finder
 # https://github.com/junegunn/fzf
 
-github junegunn/fzf-bin "$NAME.*$OS.*$ARCH"
+ARCH_RE="$(asset_arch_re)"
+OS_RE="$(asset_os_re)"
+github junegunn/fzf "$NAME.*$OS_RE.*$ARCH_RE.*(tgz|tar.gz)$"
 tar -xf ./*
 
 install fzf $BIN/

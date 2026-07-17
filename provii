@@ -4,8 +4,8 @@ cleanup() {
 	if [ "$RESET_TABS" ]; then
 		tabs -8
 	fi
-	if [ "$CLEAN_CACHE_EXIT_ON" ] && [ "$PROVII_CACHE" ]; then
-		rm -rf $PROVII_CACHE || true
+	if [ "$CLEAN_CACHE_ON_EXIT" ] && [ "$PROVII_CACHE" ]; then
+		rm -rf "$PROVII_CACHE" || true
 	fi
 }
 
@@ -15,7 +15,7 @@ if command -v tabs >/dev/null 2>&1; then
 fi
 
 PROVII_REPO=kriipke/provii
-PROVII_BRANCH=master
+PROVII_BRANCH=main
 PROVII_VERSION='0.3.0'
 CLEAN_CACHE_ON_EXIT=1
 #JQ_TARGET_DIR="$HOME/.local/bin"
@@ -27,7 +27,7 @@ GH=https://api.github.com
 
 if [ "$DEBUG" ]; then
 	set -x
-	unset CLEAN_CACHE_EXIT_ON
+	unset CLEAN_CACHE_ON_EXIT
 	VERBOSE=1
 	PS4='+ $(date "+%s.%N")\011 @line $LINENO\011'
 fi
@@ -37,15 +37,30 @@ PROVII_VARS='\(OS\|SCOPE\|LIBC\|BASH_COMP\|ZSH_COMP\|MAN\|NAME\|CACHE\|ARCH\|BIN
 check_current_version() {
 	API_REQ=$GH/repos/kriipke/provii/tags
 	LATEST_VERSION="$( curl -s "$API_REQ" | $JQ -r '.[0].name' )"
+	LATEST_VERSION_NORMALIZED="${LATEST_VERSION#v}"
+	PROVII_VERSION_NORMALIZED="${PROVII_VERSION#v}"
 	THIS_SCRIPTS_DIRNAME="$(dirname "$0")"
 	case "$LATEST_VERSION" in
-		"$PROVII_VERSION")
+		"$PROVII_VERSION" | "v$PROVII_VERSION_NORMALIZED")
 			true ;;
-		v*)
-			if [ -w "$THIS_SCRIPTS_DIRNAME" ]; then
-				printf '\nNew provii release found!\n\nPress Enter to install %s or CTRL-C to Cancel.\n' "$LATEST_VERSION"
-				read RESPONSE
-				printf 'Upgrading to %s...\n' "$LATEST_VERSION" 
+	v*)
+		if ! awk -v latest="$LATEST_VERSION_NORMALIZED" -v current="$PROVII_VERSION_NORMALIZED" '
+			BEGIN {
+				split(latest, l, ".")
+				split(current, c, ".")
+				for (i = 1; i <= 3; i++) {
+					ln = l[i] + 0
+					cn = c[i] + 0
+					if (ln > cn) exit 0
+					if (ln < cn) exit 1
+				}
+				exit 1
+			}'; then
+			true
+		elif [ -w "$THIS_SCRIPTS_DIRNAME" ]; then
+			printf '\nNew provii release found!\n\nPress Enter to install %s or CTRL-C to Cancel.\n' "$LATEST_VERSION"
+			read RESPONSE
+			printf 'Upgrading to %s...\n' "$LATEST_VERSION"
 				PROVII_BIN="$THIS_SCRIPTS_DIRNAME" install provii
 			else
 				printf "\nNew provii release found!\n\nSadly you'll have to re-run provii with administrator privileges to upgrade to %s. Press Ctrl-C to exit or Enter to continue with the current version.\n" "$LATEST_VERSION"
@@ -324,12 +339,11 @@ rm_app() {
 			esac
 		fi
 
-		awk -v app="$1" '{
-		if ( $3 == app )
-			system("rm " $4)
-		else
-			print
-		}' "$PROVII_LOG" >"$PROVII_LOG.new"
+		printf '%s\n' "$APP_FILES" | while IFS= read -r APP_FILE; do
+			[ -n "$APP_FILE" ] && rm -f -- "$APP_FILE"
+		done
+
+		awk -v app="$1" '$3 != app { print }' "$PROVII_LOG" >"$PROVII_LOG.new"
 		mv "$PROVII_LOG.new" "$PROVII_LOG"
 
 	else
@@ -526,6 +540,13 @@ set_provii_zsh_comp() {
 }
 
 set_provii_libc() {
+	case "${PROVII_OS:-}" in
+	darwin)
+		unset PROVII_LIBC
+		return 0
+		;;
+	esac
+
 	if command -v ldd >/dev/null 2>&1; then
 		LDD_OUTPUT="$(
 			ldd --version 2>/dev/null \
@@ -552,6 +573,13 @@ set_provii_arch() {
 }
 
 set_provii_scope() {
+	if [ -n "$PROVII_SCOPE" ]; then
+		case "$PROVII_SCOPE" in
+		system | user) return 0 ;;
+		*) err '$PROVII_SCOPE must be either "system" or "user".' ;;
+		esac
+	fi
+
 	if [ "$(id -u)" -eq "0" ]; then
 		PROVII_SCOPE=system
 	else
@@ -584,7 +612,12 @@ show_installer_targets() {
 	_INSTALLER_VARS="$(get_installer_vars "$INSTALLER")"
 	
 	SRC_DST=$(echo "$INSTALLATION_SCRIPT" \
-		| awk -e '/install.*\$BIN/ {printf "%s,%s\n", $2, gensub(/^.*"?\$BIN\/?(.*)$/,"\1","g")}')
+		| awk '/install.*\$BIN/ {
+			dst = $0
+			sub(/^.*"?\$BIN\/?/, "", dst)
+			sub(/".*$/, "", dst)
+			printf "%s,%s\n", $2, dst
+		}')
 
 	target_exe=''
 	for line in $SRC_DST; do
@@ -602,7 +635,12 @@ show_installer_targets() {
 
 	if [ "$PROVII_MAN" ] && echo "$_INSTALLER_VARS" | grep -q '$MAN'; then
 		SRC_DST=$(echo "$INSTALLATION_SCRIPT" \
-			| awk -e '/cp.*\$MAN/ {printf "%s,%s\n", $2, gensub(/^.*"?\$MAN\/?(.*)$/,"\1","g")}')
+			| awk '/cp.*\$MAN/ {
+				dst = $0
+				sub(/^.*"?\$MAN\/?/, "", dst)
+				sub(/".*$/, "", dst)
+				printf "%s,%s\n", $2, dst
+			}')
 
 		target_man=''
 		for line in $SRC_DST; do
@@ -700,9 +738,26 @@ ls_installers() {
 	exit
 }
 
-fn___dl_github_tarball=$(
+installer_prelude() {
 	cat <<'EOF'
-BASH_FUNC___dl_github_tarball%%=() {
+asset_os_re() {
+case "$OS" in
+	darwin) printf '(darwin|Darwin|macOS|macos|apple-darwin)' ;;
+	linux) printf '(linux|Linux|unknown-linux)' ;;
+	*) printf '%s' "$OS" ;;
+esac
+}
+
+asset_arch_re() {
+case "$ARCH" in
+	arm64 | aarch64) printf '(arm64|ARM64|aarch64)' ;;
+	x86_64 | amd64) printf '(x86_64|amd64|64bit)' ;;
+	i386 | i586 | i686) printf '(i386|i586|i686|386|32bit)' ;;
+	*) printf '%s' "$ARCH" ;;
+esac
+}
+
+__dl_github_tarball() {
 REPO=$1
 FQDN='https://github.com'
 URL="$FQDN/$REPO/tarball/${BRANCH:-master}"
@@ -710,12 +765,8 @@ URL="$FQDN/$REPO/tarball/${BRANCH:-master}"
 printf '\n%s/%s\n' "$PWD" "${CYAN}${URL##*/}${STYLE_RESET}"
 curl -#L "$URL" | tar -xzf - --strip=1
 }
-EOF
-)
 
-fn___dl_github_asset=$(
-	cat <<'EOF'
-BASH_FUNC___dl_github_asset%%=() {
+__dl_github_asset() {
 local RE FQDN URI ASSET_URL RELEASE MSG
 
 FQDN='https://api.github.com'
@@ -741,6 +792,8 @@ if [ -z "$ASSET_URL" ]; then
 			ALT_RE_1="${RE//amd64/x86_64}" ;;
 		*x86_64*)
 			ALT_RE_1="${RE//x86_64/(amd64|AMD64)}" ;;
+		arm64)
+			ALT_RE_1="${RE//arm64/(aarch64|AARCH64)}" ;;
 		aarch64)
 			ALT_RE_1="${RE//aarch64/(arm64|ARM64)}" ;;
 		aarch64_be)
@@ -778,6 +831,8 @@ if [ -z "$ASSET_URL" ]; then
 			ALT_RE_2="${RE//amd64/"$re64"}" ;;
 		*x86_64*)
 			ALT_RE_2="${RE//x86_64/"$re64"}" ;;
+		arm64)
+			ALT_RE_2="${RE//arm64/"$re64"}" ;;
 		aarch64)
 			ALT_RE_2="${RE//aarch64/"$re64"}" ;;
 		aarch64_be)
@@ -844,12 +899,8 @@ fi
 printf '\n%s/%s\n' "$PWD" "${CYAN}${ASSET_URL##*/}${STYLE_RESET}"
 curl -#LO "$ASSET_URL"
 }
-EOF
-)
 
-fn___dl_github_file__=$(
-	cat <<'EOF'
-BASH_FUNC___dl_github_file__%%=() {
+__dl_github_file__() {
 FQDN='https://api.github.com'
 BRANCH="${3+\?ref=$3}"
 URI="$FQDN/repos/$1/contents/$2$3"
@@ -875,12 +926,8 @@ done < <( curl -sSL "$URI" | "$JQ" -r '
 	else .[] | .path, .download_url
 	end' )
 }
-EOF
-)
 
-fn_github=$(
-	cat <<'EOF'
-BASH_FUNC_github%%=() {
+github() {
 local REPO BRANCH PATH_TO_FILE ASSET_RE
 JQ="$( command -v jq || echo "$JQ_DEFAULT_DIR/jq" )"
 
@@ -923,8 +970,27 @@ else
 	esac
 fi
 }
+
+log() {
+FMT='+%Y-%m-%d %T'
+if [ $1 == '--created' ]; then
+	# shift && printf '%s %s %s\n' "$(date "$FMT")" created_file "$@" >> $LOG
+	true
+else
+	printf '%s %s %s' "$(date "$FMT")" info "$@" >> $LOG
+fi
+}
+
+warn() {
+echo "Warning:" "$@"
+}
+
+err() {
+	printf "\n%s%s" "${STYLE_ERROR}$_ERROR_PREFIX${STYLE_RESET}" "$*" | fmt -w 80
+exit 1
+}
 EOF
-)
+}
 
 log() {
 	true
@@ -941,37 +1007,6 @@ err() {
 	printf "\n%s%s" "${STYLE_ERROR}$_ERROR_PREFIX${STYLE_RESET}" "$*" | fmt -w 80
 	exit 1
 }
-
-fn_log="$(
-	cat <<'EOF'
-BASH_FUNC_log%%=() {
-FMT='+%Y-%m-%d %T'
-if [ $1 == '--created' ]; then
-	# shift && printf '%s %s %s\n' "$(date "$FMT")" created_file "$@" >> $LOG
-	true
-else
-	printf '%s %s %s' "$(date "$FMT")" info "$@" >> $LOG
-fi
-}
-EOF
-)"
-
-fn_warn="$(
-	cat <<'EOF'
-BASH_FUNC_warn%%=() {
-echo "Warning:" "$@"
-}
-EOF
-)"
-
-fn_err="$(
-	cat <<'EOF'
-BASH_FUNC_err%%=() {
-	printf "\n%s%s" "${STYLE_ERROR}$_ERROR_PREFIX${STYLE_RESET}" "$*" | fmt -w 80
-exit 1
-}
-EOF
-)"
 
 PRINT_VARIABLES="$(
 	cat <<'EOF'
@@ -1031,9 +1066,9 @@ gather_facts() {
 	set_provii_log
 	set_provii_cache
 
-	set_provii_libc
-	set_provii_arch
 	set_provii_os
+	set_provii_arch
+	set_provii_libc
 	set_provii_scope
 
 	set_provii_bin
@@ -1044,68 +1079,71 @@ gather_facts() {
 }
 
 run_installer() {
-	/usr/bin/env -C "$PROVII_CACHE${INSTALLER:+/$INSTALLER}" - \
-		${INSTALLER:+NAME="$INSTALLER"} \
-		SCOPE="$PROVII_SCOPE" \
-		BIN="$PROVII_BIN" \
-		CACHE="$PROVII_CACHE${INSTALLER:+/$INSTALLER}" \
-		LOG="$PROVII_LOG" \
-		${PROVII_MAN:+MAN="$PROVII_MAN"} \
-		${PROVII_BASH_COMP:+BASH_COMP="$PROVII_BASH_COMP"} \
-		${PROVII_ZSH_COMP:+ZSH_COMP="$PROVII_ZSH_COMP"} \
-		${PROVII_LIBC:+LIBC="$PROVII_LIBC"} \
-		${PROVII_ARCH:+ARCH="$PROVII_ARCH"} \
-		${PROVII_OS:+OS="$PROVII_OS"} \
-		${UNDERLINE:+UNDERLINE="$UNDERLINE"} \
-		${NO_UNDERLINE:+NO_UNDERLINE="$NO_UNDERLINE"} \
-		${MAGENTA:+MAGENTA="$MAGENTA"} \
-		${STYLE_ERROR:+STYLE_ERROR="$MAGENTA"} \
-		${CYAN:+CYAN="$CYAN"} \
-		${STYLE_RESET:+STYLE_RESET="$STYLE_RESET"} \
-		${PS4:+PS4="$(tput ht)$(tput ht)$(tput setaf 6)$INSTALLER "'$LINENO $FUNCNAME'" :: $(tput sgr 0)"} \
-		${VERBOSE:+VERBOSE="$VERBOSE"} \
-		_ERROR_PREFIX="$_ERROR_PREFIX" \
-		_ERROR_SPACER="$_ERROR_SPACER" \
-		STYLE_VARS="$STYLE_VARS" \
-		STYLE_HEADER="$STYLE_HEADER" \
-		JQ_DEFAULT_DIR="$JQ_TARGET_DIR" \
-		"$fn_github" \
-		"$fn___dl_github_asset" \
-		"$fn___dl_github_file__" \
-		"$fn___dl_github_tarball" \
-		"$fn_log" \
-		"$fn_warn" \
-		"$fn_err" \
-		bash ${DEBUG+-x} -eE -c "$1" &
+	INSTALLER_SCRIPT="$(printf '%s\n%s' "$(installer_prelude)" "$1")"
+	RUN_DIR="$PROVII_CACHE${INSTALLER:+/$INSTALLER}"
 
-	PID=$!
-	STRACE_RE='^.*(([[:digit:]]{2}:?){3}).*[[:digit:]]<(.*)>'
-	DATE="$(date --iso-8601)"
-	TEMP_LOG="$(mktemp -p "$PROVII_CACHE")"
+	(
+		cd "$RUN_DIR" || exit 1
+		/usr/bin/env - \
+			${INSTALLER:+NAME="$INSTALLER"} \
+			SCOPE="$PROVII_SCOPE" \
+			BIN="$PROVII_BIN" \
+			CACHE="$RUN_DIR" \
+			LOG="$PROVII_LOG" \
+			${PROVII_MAN:+MAN="$PROVII_MAN"} \
+			${PROVII_BASH_COMP:+BASH_COMP="$PROVII_BASH_COMP"} \
+			${PROVII_ZSH_COMP:+ZSH_COMP="$PROVII_ZSH_COMP"} \
+			${PROVII_LIBC:+LIBC="$PROVII_LIBC"} \
+			${PROVII_ARCH:+ARCH="$PROVII_ARCH"} \
+			${PROVII_OS:+OS="$PROVII_OS"} \
+			${UNDERLINE:+UNDERLINE="$UNDERLINE"} \
+			${NO_UNDERLINE:+NO_UNDERLINE="$NO_UNDERLINE"} \
+			${MAGENTA:+MAGENTA="$MAGENTA"} \
+			${STYLE_ERROR:+STYLE_ERROR="$MAGENTA"} \
+			${CYAN:+CYAN="$CYAN"} \
+			${STYLE_RESET:+STYLE_RESET="$STYLE_RESET"} \
+			${PS4:+PS4="$(tput ht)$(tput ht)$(tput setaf 6)$INSTALLER "'$LINENO $FUNCNAME'" :: $(tput sgr 0)"} \
+			${VERBOSE:+VERBOSE="$VERBOSE"} \
+			_ERROR_PREFIX="$_ERROR_PREFIX" \
+			_ERROR_SPACER="$_ERROR_SPACER" \
+			STYLE_VARS="$STYLE_VARS" \
+			STYLE_HEADER="$STYLE_HEADER" \
+			JQ_DEFAULT_DIR="$JQ_TARGET_DIR" \
+			bash ${DEBUG+-x} -eE -c "$INSTALLER_SCRIPT" &
 
-	strace -p "$PID" -fytze trace=open,creat,openat 2>&1 |
-		grep -E 'O_CREAT|O_TRUNC' |
-		grep -v 'O_APPEND' |
-		grep -Ev "/tmp/|/dev/null|$PROVII_CACHE" |
-		sed -En "s/$STRACE_RE/$DATE\t\1\t$INSTALLER\t\3/p" >"$TEMP_LOG"
+		PID=$!
+		if has_cmd strace; then
+			STRACE_RE='^.*(([[:digit:]]{2}:?){3}).*[[:digit:]]<(.*)>'
+			DATE="$(date +%F)"
+			TEMP_LOG="$(mktemp "$PROVII_CACHE/provii-log.XXXXXX")"
 
-	wait "$PID"
-	awk '
-		NR==FNR{
-			check[$4]=$0; next
-		}
-		{
-			if ($4 in check) {
-				print check[$4]
-				delete check[$4]
-			}
-			else {print}
-		}
-		END{
-			for (i in check) print check[i]
-		}' \
-		"$TEMP_LOG" "$PROVII_LOG" >"$PROVII_LOG.new"
-	mv "$PROVII_LOG.new" "$PROVII_LOG"
+			strace -p "$PID" -fytze trace=open,creat,openat 2>&1 |
+				grep -E 'O_CREAT|O_TRUNC' |
+				grep -v 'O_APPEND' |
+				grep -Ev "/tmp/|/dev/null|$PROVII_CACHE" |
+				sed -En "s/$STRACE_RE/$DATE\t\1\t$INSTALLER\t\3/p" >"$TEMP_LOG" || true
+
+			wait "$PID"
+			awk '
+				NR==FNR{
+					check[$4]=$0; next
+				}
+				{
+					if ($4 in check) {
+						print check[$4]
+						delete check[$4]
+					}
+					else {print}
+				}
+				END{
+					for (i in check) print check[i]
+				}' \
+				"$TEMP_LOG" "$PROVII_LOG" >"$PROVII_LOG.new"
+			mv "$PROVII_LOG.new" "$PROVII_LOG"
+		else
+			wait "$PID"
+		fi
+	)
 }
 
 install() {

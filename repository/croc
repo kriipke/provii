@@ -3,7 +3,9 @@
 # easily and securely send things from one computer to another
 # https://github.com/schollz/croc
 
-github schollz/croc "$OS-$ARCH.tar.gz"
+ARCH_RE="$(asset_arch_re)"
+OS_RE="$(asset_os_re)"
+github schollz/croc "$OS_RE.*$ARCH_RE.*tar.gz$"
 tar xf ./* croc
 
 install croc $BIN/

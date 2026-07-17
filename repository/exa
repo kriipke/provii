@@ -3,7 +3,15 @@
 # a modern version of ls
 # https://the.exa.website
 
-github ogham/exa "$NAME.*$OS.*$ARCH.*-musl"
+ARCH_RE="$(asset_arch_re)"
+case "$OS" in
+darwin)
+	github ogham/exa "$NAME.*macos.*$ARCH_RE.*zip$"
+	;;
+*)
+	github ogham/exa "$NAME.*$OS.*$ARCH.*-musl"
+	;;
+esac
 unzip ./* -d output/ 1>/dev/null
 cd output
 

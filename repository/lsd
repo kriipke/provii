@@ -3,7 +3,9 @@
 # ls(deluxe) - the next gen ls command
 # https://github.com/Peltoche/lsd
 
-github Peltoche/lsd "$NAME.*$ARCH.*$OS.*$LIBC.*gz$"
+ARCH_RE="$(asset_arch_re)"
+OS_RE="$(asset_os_re)"
+github Peltoche/lsd "$NAME.*$ARCH_RE.*$OS_RE.*${LIBC:-}.*gz$"
 tar -xf ./* --strip=1 
 
 install lsd $BIN/

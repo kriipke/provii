@@ -3,7 +3,9 @@
 # a tool for exploring each layer in a docker image 
 # https://github.com/wagoodman/dive
 
-github wagoodman/dive "$OS.*$ARCH.*gz"
+ARCH_RE="$(asset_arch_re)"
+OS_RE="$(asset_os_re)"
+github wagoodman/dive "$OS_RE.*$ARCH_RE.*gz$"
 tar -xf ./*
 
 install dive $BIN/

@@ -3,5 +3,7 @@
 # command-line JSON processor
 # https://stedolan.github.io/jq/
 
-github stedolan/jq "$NAME.*$OS.*$ARCH"
+ARCH_RE="$(asset_arch_re)"
+OS_RE="$(asset_os_re)"
+github stedolan/jq "$NAME.*$OS_RE.*$ARCH_RE$"
 install jq* $BIN/jq
