@@ -3,10 +3,11 @@
 # terminal JSON viewer
 # https://fx.wtf
 
-github antonmedv/fx "$NAME.*$OS.$ARCH"
-unzip -d bin/ ./* >/dev/null
+ARCH_RE="$(asset_arch_re)"
+OS_RE="$(asset_os_re)"
+github antonmedv/fx "$NAME.*$OS_RE.*$ARCH_RE$"
 
-install bin/fx* $BIN/fx
+install fx* $BIN/fx
 
 if [ $BASH_COMP ]; then
 	github antonmedv/fx-completion/complete.sh

@@ -3,7 +3,9 @@
 # bandwidth utilization tool for the terminal
 # https://github.com/imsnif/bandwhich
 
-github imsnif/bandwhich "$NAME.*$ARCH.*$OS"
+ARCH_RE="$(asset_arch_re)"
+OS_RE="$(asset_os_re)"
+github imsnif/bandwhich "$NAME.*($ARCH_RE.*$OS_RE|$OS_RE.*$ARCH_RE).*gz$"
 tar -xf ./*
 
 install bandwhich $BIN/

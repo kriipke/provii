@@ -3,7 +3,9 @@
 # recursively search directories for a regex pattern
 # https://github.com/BurntSushi/ripgrep
 
-github BurntSushi/ripgrep "$ARCH.*$OS"
+ARCH_RE="$(asset_arch_re)"
+OS_RE="$(asset_os_re)"
+github BurntSushi/ripgrep "$ARCH_RE.*$OS_RE.*tar.gz$"
 tar -xzf ./* --strip=1
 
 install rg $BIN/

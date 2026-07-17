@@ -4,5 +4,8 @@
 # with instant live preview of command results
 # https://github.com/akavel/up
 
-github akavel/up "^$NAME$"
+case "$OS" in
+darwin) github akavel/up "^$NAME-darwin$" ;;
+*) github akavel/up "^$NAME$" ;;
+esac
 install up $BIN/

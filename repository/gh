@@ -3,10 +3,19 @@
 # GitHub’s official command line tool
 # https://cli.github.com
 
-github cli/cli "$OS.*$ARCH.*gz$"
-tar -xf ./* --strip=1
-
-install bin/gh $BIN/
+ARCH_RE="$(asset_arch_re)"
+case "$OS" in
+darwin)
+	github cli/cli "macOS.*$ARCH_RE.*zip$"
+	unzip -q ./*
+	install */bin/gh $BIN/
+	;;
+*)
+	github cli/cli "$OS.*$ARCH.*gz$"
+	tar -xf ./* --strip=1
+	install bin/gh $BIN/
+	;;
+esac
 
 if [ $MAN ]; then
 	cp share/man/man1/* $MAN/man1/

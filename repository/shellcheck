@@ -3,7 +3,9 @@
 # a shell script static analysis tool
 # https://github.com/koalaman/shellcheck
 
-github koalaman/shellcheck "$OS.*$ARCH.*xz$"
+ARCH_RE="$(asset_arch_re)"
+OS_RE="$(asset_os_re)"
+github koalaman/shellcheck "$OS_RE.*$ARCH_RE.*xz$"
 tar -xJf ./* --strip=1 
 
 install shellcheck $BIN/
