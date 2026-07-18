@@ -74,7 +74,11 @@ check_current_version() {
 	
 if command -v tput >/dev/null 2>&1; then
 	TAB="$(tput ht 2>/dev/null || echo '')"
-	if [ $(($(tput colors 2>/dev/null))) -ge 8 ]; then
+	TPUT_COLORS="$(tput colors 2>/dev/null || echo 0)"
+	case "$TPUT_COLORS" in
+	'' | *[!0-9]*) TPUT_COLORS=0 ;;
+	esac
+	if [ "$TPUT_COLORS" -ge 8 ]; then
 		RED="$(tput setaf 3 2>/dev/null || echo '')"
 		MAGENTA="$(tput setaf 5 2>/dev/null || echo '')"
 		CYAN="$(tput setaf 6 2>/dev/null || echo '')"

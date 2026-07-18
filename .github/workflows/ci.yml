@@ -59,16 +59,21 @@ jobs:
       PROVII_OS: ${{ matrix.os }}
       PROVII_ARCH: ${{ matrix.arch }}
       PROVII_SCOPE: user
-      PROVII_CACHE: $RUNNER_TEMP/provii-cache
-      PROVII_LOG: $RUNNER_TEMP/provii.log
-      PROVII_USER_BIN: $RUNNER_TEMP/provii-bin
-      PROVII_USER_MAN: $RUNNER_TEMP/provii-man
-      PROVII_USER_BASH_COMP: $RUNNER_TEMP/provii-bash-completion
-      PROVII_USER_ZSH_COMP: $RUNNER_TEMP/provii-zsh-completion
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Configure provii paths
+        run: |
+          {
+            echo "PROVII_CACHE=$RUNNER_TEMP/provii-cache"
+            echo "PROVII_LOG=$RUNNER_TEMP/provii.log"
+            echo "PROVII_USER_BIN=$RUNNER_TEMP/provii-bin"
+            echo "PROVII_USER_MAN=$RUNNER_TEMP/provii-man"
+            echo "PROVII_USER_BASH_COMP=$RUNNER_TEMP/provii-bash-completion"
+            echo "PROVII_USER_ZSH_COMP=$RUNNER_TEMP/provii-zsh-completion"
+          } >>"$GITHUB_ENV"
 
       - name: Install test prerequisites
         if: runner.os == 'Linux'
