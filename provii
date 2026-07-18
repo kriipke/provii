@@ -36,7 +36,11 @@ PROVII_VARS='\(OS\|SCOPE\|LIBC\|BASH_COMP\|ZSH_COMP\|MAN\|NAME\|CACHE\|ARCH\|BIN
 
 check_current_version() {
 	API_REQ=$GH/repos/kriipke/provii/tags
-	LATEST_VERSION="$( curl -s "$API_REQ" | $JQ -r '.[0].name' )"
+	LATEST_VERSION="$(curl -s "$API_REQ" | $JQ -er 'if type == "array" then .[0].name // empty else empty end' 2>/dev/null || true)"
+	if [ -z "$LATEST_VERSION" ]; then
+		echo "Update check failed! Failed to determine current provii release."
+		return 0
+	fi
 	LATEST_VERSION_NORMALIZED="${LATEST_VERSION#v}"
 	PROVII_VERSION_NORMALIZED="${PROVII_VERSION#v}"
 	THIS_SCRIPTS_DIRNAME="$(dirname "$0")"
@@ -67,8 +71,7 @@ check_current_version() {
 				read RESPONSE
 			fi
 			;;
-		*)
-			echo "Update check failed! Failed to determine current provii release." ;;
+		*) ;;
 	esac
 }
 	
@@ -620,7 +623,7 @@ get_installer() {
 			"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}"
 	)"
 	curl -sSL "$GITHUB_API_QUERY" \
-		| "$JQ" '.download_url' \
+		| "$JQ" -er 'if type == "object" then .download_url // empty else empty end' \
 		| xargs curl -sSL
 }
 
@@ -772,7 +775,7 @@ github() {
 
 	match="$(
 		command curl -sSL "${GH:-https://api.github.com}/repos/$repo/releases/$release" |
-			"$JQ" -r --arg re "$re" '.assets[]?.name | select(test($re; "i"))' |
+			"$JQ" -r --arg re "$re" 'if type == "object" then .assets[]?.name | select(test($re; "i")) else empty end' |
 			grep -Eiv 'sha|checksum|sbom|sig' |
 			head -1
 	)"
@@ -813,14 +816,24 @@ ls_installers() {
 	GITHUB_QUERY_LS="$(printf \
 		"https://api.github.com/repos/$PROVII_REPO/contents/repository%s" \
 		"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}")"
-	JQ_QUERY='.[] | [ .name, .download_url ] | @csv'
+	JQ_QUERY='if type == "array" then .[] | [ .name, .download_url ] | @csv else empty end'
 
-	for line in $(curl -sSL "$GITHUB_QUERY_LS" | "$JQ" -r "$JQ_QUERY" | tr -d '"'); do
-		APP="${line%,*}"
+	if [ -d repository ]; then
+		INSTALLERS="$(
+			for INSTALLER_PATH in repository/*; do
+				[ -f "$INSTALLER_PATH" ] && basename "$INSTALLER_PATH"
+			done | sort
+		)"
+	else
+		INSTALLERS="$(curl -sSL "$GITHUB_QUERY_LS" | "$JQ" -r "$JQ_QUERY" | tr -d '"' | cut -d, -f1)"
+	fi
+
+	for APP in $INSTALLERS; do
 		if [ -f "repository/$APP" ]; then
 			INSTALLATION_SCRIPT="$(cat "repository/$APP")"
 		else
-			INSTALLATION_SCRIPT="$(curl -sSL "${line#*,}")"
+			INSTALLER="$APP"
+			INSTALLATION_SCRIPT="$(get_installer)"
 		fi
 
 		installer_supports_current_system "$APP" "$INSTALLATION_SCRIPT" || continue
@@ -852,7 +865,7 @@ installer_prelude() {
 	cat <<'EOF'
 asset_os_re() {
 case "$OS" in
-	darwin) printf '(darwin|Darwin|macOS|macos|apple-darwin)' ;;
+	darwin) printf '(darwin|Darwin|macOS|macos|osx|apple-darwin)' ;;
 	linux) printf '(linux|Linux|unknown-linux)' ;;
 	*) printf '%s' "$OS" ;;
 esac
@@ -885,7 +898,7 @@ RE="${2//\\/\\\\}"
 REPO="$1"
 URI="/repos/$REPO/releases/${RELEASE:-latest}"
 
-JQ_CMD='[.assets[]? | { asset:.name, url:.browser_download_url }]'
+JQ_CMD='if type == "object" then [.assets[]? | { asset:.name, url:.browser_download_url }] else [] end'
 ASSETS="$( curl -sSL "$FQDN$URI" | "$JQ" "$JQ_CMD" )"
 
 if [ $VERBOSE ]; then
