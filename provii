@@ -130,6 +130,7 @@ create_dir() {
 }
 
 style() {
+	STYLE=''
 	case "${1:?}" in
 	ERROR) STYLE="$MAGENTA" ;;
 	COLOR) STYLE="$MAGENTA" ;;
@@ -141,7 +142,7 @@ style() {
 	*) [ '\e' = "$(echo "$1" | cut -c1)" ] && STYLE="$1" ;;
 	esac
 
-	printf '%s%s%s' "${STYLE:?}" "${2:-"$(cat)"}" "$STYLE_RESET"
+	printf '%s%s%s' "$STYLE" "${2:-"$(cat)"}" "$STYLE_RESET"
 }
 
 prompt() {
@@ -427,6 +428,12 @@ set_provii_man() {
 set_provii_bash_comp() {
 	case "$PROVII_SCOPE" in
 	system)
+		if [ -n "$PROVII_SYSTEM_BASH_COMP" ]; then
+			PROVII_BASH_COMP="$PROVII_SYSTEM_BASH_COMP"
+			create_dir "$PROVII_BASH_COMP"
+			return 0
+		fi
+
 		PROVII_BASH_COMP=${SYS_BASH_COMP-/etc/bash_completion.d}
 		if has_cmd manpath; then
 			for MAN_PATH in $(manpath -g | tr : $'\n'); do
@@ -438,6 +445,12 @@ set_provii_bash_comp() {
 		fi
 		;;
 	user)
+		if [ -n "$PROVII_USER_BASH_COMP" ]; then
+			PROVII_BASH_COMP="$PROVII_USER_BASH_COMP"
+			create_dir "$PROVII_BASH_COMP"
+			return 0
+		fi
+
 		# bash-completion 2.9 introduced the follow as a directory for completions:
 		# ${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion.d
 		BASH_COMP_VER="$(has_package --version 'bash-completion')"
@@ -544,6 +557,10 @@ set_provii_zsh_comp() {
 }
 
 set_provii_libc() {
+	if [ -n "$PROVII_LIBC" ]; then
+		return 0
+	fi
+
 	case "${PROVII_OS:-}" in
 	darwin)
 		unset PROVII_LIBC
@@ -871,7 +888,7 @@ RE="${2//\\/\\\\}"
 REPO="$1"
 URI="/repos/$REPO/releases/${RELEASE:-latest}"
 
-JQ_CMD='[.assets[] | { asset:.name, url:.browser_download_url }]'
+JQ_CMD='[.assets[]? | { asset:.name, url:.browser_download_url }]'
 ASSETS="$( curl -sSL "$FQDN$URI" | "$JQ" "$JQ_CMD" )"
 
 if [ $VERBOSE ]; then
@@ -1198,7 +1215,7 @@ run_installer() {
 			${STYLE_ERROR:+STYLE_ERROR="$MAGENTA"} \
 			${CYAN:+CYAN="$CYAN"} \
 			${STYLE_RESET:+STYLE_RESET="$STYLE_RESET"} \
-			${PS4:+PS4="$(tput ht)$(tput ht)$(tput setaf 6)$INSTALLER "'$LINENO $FUNCNAME'" :: $(tput sgr 0)"} \
+			${DEBUG:+PS4="$TAB$TAB$CYAN$INSTALLER "'$LINENO $FUNCNAME'" :: $STYLE_RESET"} \
 			${VERBOSE:+VERBOSE="$VERBOSE"} \
 			_ERROR_PREFIX="$_ERROR_PREFIX" \
 			_ERROR_SPACER="$_ERROR_SPACER" \
