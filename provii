@@ -2,7 +2,7 @@
 
 cleanup() {
 	if [ "$RESET_TABS" ]; then
-		tabs -8
+		tabs -8 2>/dev/null || true
 	fi
 	if [ "$CLEAN_CACHE_ON_EXIT" ] && [ "$PROVII_CACHE" ]; then
 		rm -rf "$PROVII_CACHE" || true
@@ -10,7 +10,7 @@ cleanup() {
 }
 
 if command -v tabs >/dev/null 2>&1; then
-	tabs -4 && RESET_TABS=1
+	tabs -4 2>/dev/null && RESET_TABS=1
 	trap 'cleanup' EXIT
 fi
 
@@ -816,38 +816,35 @@ ls_installers() {
 	JQ_QUERY='.[] | [ .name, .download_url ] | @csv'
 
 	for line in $(curl -sSL "$GITHUB_QUERY_LS" | "$JQ" -r "$JQ_QUERY" | tr -d '"'); do
-		(
-			APP="${line%,*}"
-			if [ -f "repository/$APP" ]; then
-				INSTALLATION_SCRIPT="$(cat "repository/$APP")"
-			else
-				INSTALLATION_SCRIPT="$(curl -sSL "${line#*,}")"
-			fi
+		APP="${line%,*}"
+		if [ -f "repository/$APP" ]; then
+			INSTALLATION_SCRIPT="$(cat "repository/$APP")"
+		else
+			INSTALLATION_SCRIPT="$(curl -sSL "${line#*,}")"
+		fi
 
-			installer_supports_current_system "$APP" "$INSTALLATION_SCRIPT" || exit 0
+		installer_supports_current_system "$APP" "$INSTALLATION_SCRIPT" || continue
 
-			printf '%s\n' "$INSTALLATION_SCRIPT" |
-				grep -E '(^# ).+' |
-				sed -n 's/^# //p' |
-				awk -v app="$APP" \
-					-v style_url="${BLUE}${UNDERLINE}" \
-					-v style_reset_url="${STYLE_RESET}${NO_UNDERLINE}" \
-					-v style_name="${STYLE_RESET}${MAGENTA}" \
-					-v style_reset="${STYLE_RESET}${STYLE_RESET}" \ '
-					BEGIN{
-						RS=""
-						FS="\n"
-					}{
-						printf "%s%s%s|", style_name,app,style_reset
-						for(i=2; i<=NF; i++) {
-							if ($i ~ /^http/) url=$i
-							printf("%s ", $(i-1))
-						}
-						printf "|%s%s%s\n", style_url,url,style_reset_url
-					}'
-		) &
+		printf '%s\n' "$INSTALLATION_SCRIPT" |
+			grep -E '(^# ).+' |
+			sed -n 's/^# //p' |
+			awk -v app="$APP" \
+				-v style_url="${BLUE}${UNDERLINE}" \
+				-v style_reset_url="${STYLE_RESET}${NO_UNDERLINE}" \
+				-v style_name="${STYLE_RESET}${MAGENTA}" \
+				-v style_reset="${STYLE_RESET}${STYLE_RESET}" \ '
+				BEGIN{
+					RS=""
+					FS="\n"
+				}{
+					printf "%s%s%s|", style_name,app,style_reset
+					for(i=2; i<=NF; i++) {
+						if ($i ~ /^http/) url=$i
+						printf("%s ", $(i-1))
+					}
+					printf "|%s%s%s\n", style_url,url,style_reset_url
+				}'
 	done | column -t -s\|
-	wait
 	exit
 }
 
