@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    name: Syntax checks
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check shell syntax
+        run: |
+          bash -n provii repository/*
+          sh -n provii
+
+      - name: Check manifest is current
+        run: |
+          make manifest
+          git diff --exit-code repository/manifest.json
+
+  install-smoke:
+    name: Install smoke (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x64
+            runner: ubuntu-24.04
+            os: linux
+            arch: x86_64
+            apps: "jq fd rg glow"
+          - name: linux-arm64
+            runner: ubuntu-24.04-arm
+            os: linux
+            arch: aarch64
+            apps: "jq fd rg glow"
+          - name: macos-arm64
+            runner: macos-15
+            os: darwin
+            arch: arm64
+            apps: "jq fd rg glow"
+          - name: macos-x64
+            runner: macos-15-intel
+            os: darwin
+            arch: x86_64
+            apps: "jq fd rg glow"
+
+    env:
+      PROVII_OS: ${{ matrix.os }}
+      PROVII_ARCH: ${{ matrix.arch }}
+      PROVII_SCOPE: user
+      PROVII_CACHE: $RUNNER_TEMP/provii-cache
+      PROVII_LOG: $RUNNER_TEMP/provii.log
+      PROVII_USER_BIN: $RUNNER_TEMP/provii-bin
+      PROVII_USER_MAN: $RUNNER_TEMP/provii-man
+      PROVII_USER_BASH_COMP: $RUNNER_TEMP/provii-bash-completion
+      PROVII_USER_ZSH_COMP: $RUNNER_TEMP/provii-zsh-completion
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install test prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl tar unzip xz-utils man-db bash-completion
+
+      - name: Install macOS test prerequisites
+        if: runner.os == 'macOS'
+        run: |
+          if ! command -v jq >/dev/null 2>&1; then
+            brew install jq
+          fi
+
+      - name: Prepare install targets
+        run: |
+          mkdir -p \
+            "$PROVII_USER_BIN" \
+            "$PROVII_USER_MAN/man1" \
+            "$PROVII_USER_MAN/man5" \
+            "$PROVII_USER_MAN/man8" \
+            "$PROVII_USER_BASH_COMP" \
+            "$PROVII_USER_ZSH_COMP"
+
+      - name: List compatible installers
+        run: |
+          TERM=dumb sh provii ls | tee "$RUNNER_TEMP/provii-ls.txt"
+          for app in ${{ matrix.apps }}; do
+            grep -q "$app" "$RUNNER_TEMP/provii-ls.txt"
+          done
+
+      - name: Install representative apps
+        run: |
+          for app in ${{ matrix.apps }}; do
+            sh provii install "$app"
+            test -x "$PROVII_USER_BIN/$app"
+          done
+
+      - name: Verify installed commands
+        run: |
+          "$PROVII_USER_BIN/jq" --version
+          "$PROVII_USER_BIN/fd" --version
+          "$PROVII_USER_BIN/rg" --version
+          "$PROVII_USER_BIN/glow" --version
