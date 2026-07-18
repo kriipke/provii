@@ -3,7 +3,19 @@
 # render markdown on the CLI, with pizzazz!
 # https://github.com/charmbracelet/glow
 
-github charmbracelet/glow "$OS.*$ARCH.*gz$"
-tar -xf ./*
+ARCH_RE="$(asset_arch_re)"
+OS_RE="$(asset_os_re)"
+github charmbracelet/glow "$OS_RE.*$ARCH_RE.*gz$"
+tar -xf ./* --strip=1
 
 install glow $BIN/
+
+if [ $MAN ]; then
+	cp manpages/glow.1.gz $MAN/man1/
+fi
+if [ $BASH_COMP ]; then
+	cp completions/glow.bash $BASH_COMP/glow.bash-completion
+fi
+if [ $ZSH_COMP ]; then
+	cp completions/glow.zsh $ZSH_COMP/_glow
+fi

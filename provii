@@ -16,7 +16,7 @@ fi
 
 PROVII_REPO=kriipke/provii
 PROVII_BRANCH=main
-PROVII_VERSION='0.4.1'
+PROVII_VERSION='0.4.2'
 CLEAN_CACHE_ON_EXIT=1
 #JQ_TARGET_DIR="$HOME/.local/bin"
 
@@ -359,59 +359,59 @@ set_provii_log() {
 
 set_provii_man() {
 	case "${PROVII_SCOPE:?}" in
-	system)
-		[ -n "$PROVII_SYSTEM_MAN" ] && {
-			PROVII_MAN="$PROVII_SYSTEM_MAN"
-			return 0
-		}
-
-		MAN_DIR_PREFERRED="/usr/local/share/man"
-		MAN_DIR_ALT="/usr/share/man"
-
-		if has_cmd manpath; then
-			MANPATH_DIRS="$(manpath -g | tr : "$CHAR_NL")"
-			if echo "$MANPATH_DIRS" | grep -q "$MAN_DIR_PREFERRED"; then
-				PROVII_MAN="$MAN_DIR_PREFERRED"
-			elif echo "$MANPATH_DIRS" | grep -q "$MAN_DIR_ALT"; then
-				PROVII_MAN="$MAN_DIR_ALT"
-			fi
-
-		else
-			if has_package 'man-db'; then
-				PROVII_MAN="$MAN_DIR_ALT"
+		system)
+			if [ -n "$PROVII_SYSTEM_MAN" ]; then
+				PROVII_MAN="$PROVII_SYSTEM_MAN"
 			else
-				warn 'Package not installed: man-db. Failed to set $BASH_COMP variable.'
-			fi
-		fi
-		;;
-	user)
-		[ -n "$PROVII_USER_MAN" ] && {
-			PROVII_MAN="$PROVII_USER_MAN"
-			return 0
-		}
-		MAN_DIR_PREFERRED="${XDG_DATA_HOME:-$HOME/.local/share}/man"
 
-		if has_cmd manpath; then
-			MANPATH_DIRS="$(manpath | tr ":" "$CHAR_NL")"
-			if echo "$MANPATH_DIRS" | grep -q "$MAN_DIR_PREFERRED"; then
-				PROVII_MAN="$MAN_DIR_PREFERRED"
-			elif echo "$MANPATH_DIRS" | grep -q "$HOME"; then
-				PROVII_MAN="$(echo "$MANPATH_DIRS" | grep -m 1 "$HOME")"
-			else
-				# else, add MAN_DIR_PREFERRED to manpath
-				PROVII_MAN="${XDG_DATA_HOME:-$HOME/.local/share}/man"
-				echo "MANDATORY_MANPATH $PROVII_MAN" >"$HOME/.manpath"
+				MAN_DIR_PREFERRED="/usr/local/share/man"
+				MAN_DIR_ALT="/usr/share/man"
+
+				if has_cmd manpath; then
+					MANPATH_DIRS="$(manpath -g | tr : "$CHAR_NL")"
+					if echo "$MANPATH_DIRS" | grep -q "$MAN_DIR_PREFERRED"; then
+						PROVII_MAN="$MAN_DIR_PREFERRED"
+					elif echo "$MANPATH_DIRS" | grep -q "$MAN_DIR_ALT"; then
+						PROVII_MAN="$MAN_DIR_ALT"
+					fi
+
+				else
+					if has_package 'man-db'; then
+						PROVII_MAN="$MAN_DIR_ALT"
+					else
+						warn 'Package not installed: man-db. Failed to set $BASH_COMP variable.'
+					fi
+				fi
 			fi
-		else
-			if has_package man-db; then
-				# else, add MAN_DIR_PREFERRED to manpath
-				PROVII_MAN="${XDG_DATA_HOME:-$HOME/.local/share}/man"
-				echo "MANDATORY_MANPATH $PROVII_MAN" >"$HOME/.manpath"
+			;;
+		user)
+			if [ -n "$PROVII_USER_MAN" ]; then
+				PROVII_MAN="$PROVII_USER_MAN"
 			else
-				warn 'Package not installed: man-db. Failed to set $BASH_COMP variable.'
+				MAN_DIR_PREFERRED="${XDG_DATA_HOME:-$HOME/.local/share}/man"
+
+				if has_cmd manpath; then
+					MANPATH_DIRS="$(manpath | tr ":" "$CHAR_NL")"
+					if echo "$MANPATH_DIRS" | grep -q "$MAN_DIR_PREFERRED"; then
+						PROVII_MAN="$MAN_DIR_PREFERRED"
+					elif echo "$MANPATH_DIRS" | grep -q "$HOME"; then
+						PROVII_MAN="$(echo "$MANPATH_DIRS" | grep -m 1 "$HOME")"
+					else
+						# else, add MAN_DIR_PREFERRED to manpath
+						PROVII_MAN="${XDG_DATA_HOME:-$HOME/.local/share}/man"
+						echo "MANDATORY_MANPATH $PROVII_MAN" >"$HOME/.manpath"
+					fi
+				else
+					if has_package man-db; then
+						# else, add MAN_DIR_PREFERRED to manpath
+						PROVII_MAN="${XDG_DATA_HOME:-$HOME/.local/share}/man"
+						echo "MANDATORY_MANPATH $PROVII_MAN" >"$HOME/.manpath"
+					else
+						warn 'Package not installed: man-db. Failed to set $BASH_COMP variable.'
+					fi
+				fi
 			fi
-		fi
-		;;
+			;;
 	esac
 	if [ -n "$PROVII_MAN" ]; then
 		create_dir "$PROVII_MAN"/man1
@@ -588,6 +588,11 @@ set_provii_scope() {
 }
 
 get_installer() {
+	if [ -f "repository/$INSTALLER" ]; then
+		cat "repository/$INSTALLER"
+		return 0
+	fi
+
 	GITHUB_API_QUERY="$(
 		printf 'https://api.github.com%s%s' \
 			"/repos/$PROVII_REPO/contents/repository/$INSTALLER" \
@@ -704,7 +709,86 @@ show_installer_targets() {
 	# IFS="$OLD_IFS"
 }
 
+installer_supports_current_system() {
+	APP="$1"
+	INSTALLATION_SCRIPT="$2"
+
+	case "$APP" in
+	*.json) return 1 ;;
+	esac
+
+	case "$PROVII_OS" in
+	linux) true ;;
+	*)
+		if printf '%s\n' "$INSTALLATION_SCRIPT" | grep -Eiq 'linux_static|linux kernel|download/binaries'; then
+			return 1
+		fi
+		;;
+	esac
+
+	(
+		printf '%s\n' "$(installer_prelude)"
+		cat <<'EOF'
+github() {
+	case "$#" in
+	1)
+		return 0
+		;;
+	2)
+		repo="$1"
+		release=latest
+		re="$2"
+		;;
+	3)
+		repo="$1"
+		release="tags/$2"
+		re="$3"
+		;;
+	*)
+		exit 42
+		;;
+	esac
+
+	match="$(
+		command curl -sSL "${GH:-https://api.github.com}/repos/$repo/releases/$release" |
+			"$JQ" -r --arg re "$re" '.assets[]?.name | select(test($re; "i"))' |
+			grep -Eiv 'sha|checksum|sbom|sig' |
+			head -1
+	)"
+
+	[ -n "$match" ] || exit 42
+	return 0
+}
+
+curl() { return 0; }
+tar() { return 0; }
+unzip() { return 0; }
+install() { return 0; }
+cp() { return 0; }
+chmod() { return 0; }
+mkdir() { return 0; }
+cd() { return 0; }
+EOF
+		printf '%s\n' "$INSTALLATION_SCRIPT"
+	) |
+		NAME="$APP" \
+		OS="$PROVII_OS" \
+		ARCH="$PROVII_ARCH" \
+		LIBC="$PROVII_LIBC" \
+		BIN=/tmp \
+		MAN= \
+		BASH_COMP= \
+		ZSH_COMP= \
+		GH="$GH" \
+		JQ="$JQ" \
+		bash >/dev/null 2>&1
+}
+
 ls_installers() {
+	set_provii_os
+	set_provii_arch
+	set_provii_libc
+
 	GITHUB_QUERY_LS="$(printf \
 		"https://api.github.com/repos/$PROVII_REPO/contents/repository%s" \
 		"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}")"
@@ -713,7 +797,15 @@ ls_installers() {
 	for line in $(curl -sSL "$GITHUB_QUERY_LS" | "$JQ" -r "$JQ_QUERY" | tr -d '"'); do
 		(
 			APP="${line%,*}"
-			curl -sSL "${line#*,}" |
+			if [ -f "repository/$APP" ]; then
+				INSTALLATION_SCRIPT="$(cat "repository/$APP")"
+			else
+				INSTALLATION_SCRIPT="$(curl -sSL "${line#*,}")"
+			fi
+
+			installer_supports_current_system "$APP" "$INSTALLATION_SCRIPT" || exit 0
+
+			printf '%s\n' "$INSTALLATION_SCRIPT" |
 				grep -E '(^# ).+' |
 				sed -n 's/^# //p' |
 				awk -v app="$APP" \
@@ -832,21 +924,21 @@ if [ -z "$ASSET_URL" ]; then
 		*x86_64*)
 			ALT_RE_2="${RE//x86_64/"$re64"}" ;;
 		arm64)
-			ALT_RE_2="${RE//arm64/"$re64"}" ;;
+			ALT_RE_2="${RE//arm64/$re64}" ;;
 		aarch64)
-			ALT_RE_2="${RE//aarch64/"$re64"}" ;;
+			ALT_RE_2="${RE//aarch64/$re64}" ;;
 		aarch64_be)
-			ALT_RE_2="${RE//aarch64_be/"$re64"}" ;;
+			ALT_RE_2="${RE//aarch64_be/$re64}" ;;
 		armv8b)
-			ALT_RE_2="${RE//armv8b/"$re64"}" ;;
+			ALT_RE_2="${RE//armv8b/$re64}" ;;
 		armv8l)
-			ALT_RE_2="${RE//armv8l/"$re64"}" ;;
+			ALT_RE_2="${RE//armv8l/$re64}" ;;
 		*i386*)
-			ALT_RE_2="${RE//i386/"$re32"}" ;;
+			ALT_RE_2="${RE//i386/$re32}" ;;
 		*i586*)
-			ALT_RE_2="${RE//i586/"$re32"}" ;;
+			ALT_RE_2="${RE//i586/$re32}" ;;
 		*i686*)
-			ALT_RE_2="${RE//i686/"$re32"}" ;;
+			ALT_RE_2="${RE//i686/$re32}" ;;
 		*)
 			err "Machine architecture $ARCH not currently supported by provii." \
 				"Failed to download binary for $NAME." ;;
