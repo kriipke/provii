@@ -5,5 +5,21 @@
 
 ARCH_RE="$(asset_arch_re)"
 OS_RE="$(asset_os_re)"
-github stedolan/jq "$NAME.*$OS_RE.*$ARCH_RE$"
+case "$OS:$ARCH" in
+darwin:arm64 | darwin:aarch64)
+	github jqlang/jq "^$NAME-macos-arm64$"
+	;;
+darwin:x86_64 | darwin:amd64)
+	github jqlang/jq "^$NAME-macos-amd64$"
+	;;
+linux:arm64 | linux:aarch64)
+	github jqlang/jq "^$NAME-linux-arm64$"
+	;;
+linux:x86_64 | linux:amd64)
+	github jqlang/jq "^$NAME-linux-amd64$"
+	;;
+*)
+	github jqlang/jq "$NAME.*$OS_RE.*$ARCH_RE$"
+	;;
+esac
 install jq* $BIN/jq
