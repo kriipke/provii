@@ -25,6 +25,17 @@ CHAR_TAB=\\011
 CHAR_SPCE=\\040
 GH=https://api.github.com
 
+github_api_curl() {
+	if [ -n "${GITHUB_TOKEN:-}" ]; then
+		curl -sSL \
+			-H "Authorization: Bearer $GITHUB_TOKEN" \
+			-H "X-GitHub-Api-Version: 2022-11-28" \
+			"$@"
+	else
+		curl -sSL "$@"
+	fi
+}
+
 if [ "$DEBUG" ]; then
 	set -x
 	unset CLEAN_CACHE_ON_EXIT
@@ -36,7 +47,7 @@ PROVII_VARS='\(OS\|SCOPE\|LIBC\|BASH_COMP\|ZSH_COMP\|MAN\|NAME\|CACHE\|ARCH\|BIN
 
 check_current_version() {
 	API_REQ=$GH/repos/kriipke/provii/tags
-	LATEST_VERSION="$(curl -s "$API_REQ" | $JQ -er 'if type == "array" then .[0].name // empty else empty end' 2>/dev/null || true)"
+	LATEST_VERSION="$(github_api_curl "$API_REQ" | $JQ -er 'if type == "array" then .[0].name // empty else empty end' 2>/dev/null || true)"
 	if [ -z "$LATEST_VERSION" ]; then
 		echo "Update check failed! Failed to determine current provii release."
 		return 0
@@ -156,30 +167,38 @@ prompt() {
 #  installs jq to $HOME/.local/bin/jq, where it will be looked
 #- for in the event that it cannot be found by searching $PATH
 install_jq() {
-        JQ_VERSION="1.6"
-        JQ_URL="https://github.com/stedolan/jq/releases/download/jq-$JQ_VERSION"
+        JQ_VERSION="1.8.2"
+        JQ_URL="https://github.com/jqlang/jq/releases/download/jq-$JQ_VERSION"
         JQ_TARGET_DIR="${JQ_TARGET_DIR:-$HOME/.local/bin}"
 
         set_provii_os
         set_provii_arch
 
         if [ "$PROVII_OS" = 'darwin' ]; then
-                JQ_FILE="jq-osx-amd64"
+                case "$PROVII_ARCH" in
+                arm64 | aarch64)
+                        JQ_FILE="jq-macos-arm64"
+                        ;;
+                x86_64 | amd64)
+                        JQ_FILE="jq-macos-amd64"
+                        ;;
+                esac
         else
                 case "$PROVII_ARCH" in
                 x86_64 | amd64 )
-                        JQ_FILE="jq-linux64"
+                        JQ_FILE="jq-linux-amd64"
                         ;;
-                arch64 )
-                        curl -sSLo "$JQ_TARGET_DIR/jq" https://dl.spencersmolen.com/linux/aarch64/jq
-                        return 0
+                arm64 | aarch64 )
+                        JQ_FILE="jq-linux-arm64"
                         ;;
                 i386 | i586 | i686)
-                        JQ_FILE="jq-linux32"
+                        JQ_FILE="jq-linux-i386"
                         ;;
                 esac
         fi
 
+        [ -n "$JQ_FILE" ] || err "Machine architecture $PROVII_ARCH not currently supported by provii." \
+                "Failed to download jq."
         [ -d "$JQ_TARGET_DIR" ] || create_dir "$JQ_TARGET_DIR"
         curl -sSLo "$JQ_TARGET_DIR/jq" "$JQ_URL/$JQ_FILE"
         chmod ug+rx "$JQ_TARGET_DIR/jq"
@@ -622,7 +641,7 @@ get_installer() {
 			"/repos/$PROVII_REPO/contents/repository/$INSTALLER" \
 			"${PROVII_BRANCH:+?ref=$PROVII_BRANCH}"
 	)"
-	curl -sSL "$GITHUB_API_QUERY" \
+	github_api_curl "$GITHUB_API_QUERY" \
 		| "$JQ" -er 'if type == "object" then .download_url // empty else empty end' \
 		| xargs curl -sSL
 }
@@ -774,7 +793,14 @@ github() {
 	esac
 
 	match="$(
-		command curl -sSL "${GH:-https://api.github.com}/repos/$repo/releases/$release" |
+		if [ -n "${GITHUB_TOKEN:-}" ]; then
+			command curl -sSL \
+				-H "Authorization: Bearer $GITHUB_TOKEN" \
+				-H "X-GitHub-Api-Version: 2022-11-28" \
+				"${GH:-https://api.github.com}/repos/$repo/releases/$release"
+		else
+			command curl -sSL "${GH:-https://api.github.com}/repos/$repo/releases/$release"
+		fi |
 			"$JQ" -r --arg re "$re" 'if type == "object" then .assets[]?.name | select(test($re; "i")) else empty end' |
 			grep -Eiv 'sha|checksum|sbom|sig' |
 			head -1
@@ -825,7 +851,7 @@ ls_installers() {
 			done | sort
 		)"
 	else
-		INSTALLERS="$(curl -sSL "$GITHUB_QUERY_LS" | "$JQ" -r "$JQ_QUERY" | tr -d '"' | cut -d, -f1)"
+		INSTALLERS="$(github_api_curl "$GITHUB_QUERY_LS" | "$JQ" -r "$JQ_QUERY" | tr -d '"' | cut -d, -f1)"
 	fi
 
 	for APP in $INSTALLERS; do
@@ -863,6 +889,17 @@ ls_installers() {
 
 installer_prelude() {
 	cat <<'EOF'
+github_api_curl() {
+	if [ -n "${GITHUB_TOKEN:-}" ]; then
+		curl -sSL \
+			-H "Authorization: Bearer $GITHUB_TOKEN" \
+			-H "X-GitHub-Api-Version: 2022-11-28" \
+			"$@"
+	else
+		curl -sSL "$@"
+	fi
+}
+
 asset_os_re() {
 case "$OS" in
 	darwin) printf '(darwin|Darwin|macOS|macos|osx|apple-darwin)' ;;
@@ -899,7 +936,8 @@ REPO="$1"
 URI="/repos/$REPO/releases/${RELEASE:-latest}"
 
 JQ_CMD='if type == "object" then [.assets[]? | { asset:.name, url:.browser_download_url }] else [] end'
-ASSETS="$( curl -sSL "$FQDN$URI" | "$JQ" "$JQ_CMD" )"
+API_RESPONSE="$(github_api_curl "$FQDN$URI")"
+ASSETS="$( printf '%s\n' "$API_RESPONSE" | "$JQ" "$JQ_CMD" )"
 
 if [ $VERBOSE ]; then
 	printf "Assets found for %s:\n\n%s\n" "$NAME" "$ASSETS"
@@ -1000,6 +1038,11 @@ if [ -z "$ASSET_URL" ]; then
 	RESPONSE_2B="$( printf '\n\t\t%s' \
 		$(echo "$ASSETS" | "$JQ" -r '.[].asset' ) \
 		)"
+	if [ -z "$RESPONSE_2B" ]; then
+		GITHUB_MESSAGE="$(printf '%s\n' "$API_RESPONSE" | "$JQ" -r 'if type == "object" then .message // empty else empty end' 2>/dev/null || true)"
+		RESPONSE_2B="${GITHUB_MESSAGE:+
+		GitHub API response: $GITHUB_MESSAGE}"
+	fi
 	MSG="$( printf '%s\n%s\n\n%s\n%s' \
 		"$RESPONSE_1A" "$RESPONSE_1B" \
 		"$RESPONSE_2A" "$RESPONSE_2B" \
@@ -1043,7 +1086,7 @@ while read -r FILE; do
 	printf '\n%s/%s\n' "$PWD" "${CYAN}${URL##*/}${STYLE_RESET}"
 	curl -#L -o "$FILE" "$URL"
 
-done < <( curl -sSL "$URI" | "$JQ" -r '
+done < <( github_api_curl "$URI" | "$JQ" -r '
 	if type == "object" 
 	then .path,.download_url 
 	else .[] | .path, .download_url
@@ -1232,6 +1275,7 @@ run_installer() {
 			STYLE_VARS="$STYLE_VARS" \
 			STYLE_HEADER="$STYLE_HEADER" \
 			JQ_DEFAULT_DIR="$JQ_TARGET_DIR" \
+			${GITHUB_TOKEN:+GITHUB_TOKEN="$GITHUB_TOKEN"} \
 			bash ${DEBUG+-x} -eE -c "$INSTALLER_SCRIPT" &
 
 		PID=$!

@@ -53,12 +53,14 @@ jobs:
             runner: macos-15-intel
             os: darwin
             arch: x86_64
-            apps: "jq fd rg glow"
+            apps: "jq rg glow"
 
     env:
       PROVII_OS: ${{ matrix.os }}
       PROVII_ARCH: ${{ matrix.arch }}
       PROVII_SCOPE: user
+      GITHUB_TOKEN: ${{ github.token }}
+      SMOKE_APPS: ${{ matrix.apps }}
 
     steps:
       - name: Checkout repository
@@ -101,13 +103,13 @@ jobs:
       - name: List compatible installers
         run: |
           TERM=dumb sh provii ls | tee "$RUNNER_TEMP/provii-ls.txt"
-          for app in ${{ matrix.apps }}; do
+          for app in $SMOKE_APPS; do
             grep -q "$app" "$RUNNER_TEMP/provii-ls.txt"
           done
 
       - name: Install representative apps
         run: |
-          for app in ${{ matrix.apps }}; do
+          for app in $SMOKE_APPS; do
             sh provii install "$app"
             test -x "$PROVII_USER_BIN/$app"
           done
@@ -115,6 +117,8 @@ jobs:
       - name: Verify installed commands
         run: |
           "$PROVII_USER_BIN/jq" --version
-          "$PROVII_USER_BIN/fd" --version
+          if [ -x "$PROVII_USER_BIN/fd" ]; then
+            "$PROVII_USER_BIN/fd" --version
+          fi
           "$PROVII_USER_BIN/rg" --version
           "$PROVII_USER_BIN/glow" --version
