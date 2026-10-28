@@ -1,419 +1,228 @@
 = provii
 :doctype: article
-:description: A README template written in AsciiDoc markup
-:toc: macro
-:toclevels: 3
-:toc: preamble
-:imagesdir: docs/images
-ifdef::env-github[]
-:tip-caption: :rocket:
-:!showtitle:
-:icons: font
+:description: A lightweight installer for precompiled command-line tools
+:toc:
+:toclevels: 2
+:imagesdir: share
 
-++++
-<p align="center">
-  <img width="275" height="275" src="share/provii.png">
-</p>
-<p align="center">
-    <h1 align="center">provii</h1>
-  
-  
-    <!-- REPLACE THE FOLLOWING WITH YOUR REPOSITORY/PROJECT'S SHORT DESCRIPTION -->
-    <h3 align="center">a lightweight cli power tool installer</h3>
-        <p align="center">
-      <img height=20 src="https://img.shields.io/badge/github%20actions-%232671E5.svg?style=for-the-badge&logo=githubactions&logoColor=white">
-  <img height=20 src="https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black">
-  <img height=20 src="https://img.shields.io/badge/shell_script-%23121011.svg?style=for-the-badge&logo=gnu-bash&logoColor=white">
+image::provii.png[provii,width=200]
 
-</p>
-<br/>
-++++
+`provii` downloads precompiled command-line tools and installs their executables,
+man pages, and shell completions when available. It is for developers who move
+between workstations, VMs, and containers and want tools such as `fd`, `rg`, `jq`,
+and `fzf` without building them from source.
 
-`provii` is an extremely light-weight provisioning tool that aims to be a pseudo-packagemanager for modern command line tools. It allows you to painlessly download your favorite command-line utilities as pre-compiled binaries on a machine that that may be missing them in the blink of an eye. 
+The project consists of a shell entrypoint and Bash installer recipes in
+link:repository/[repository/]. Recipes select upstream release assets for the
+current operating system, architecture, and Linux libc. Installations can use
+user-owned directories or system locations.
 
-It was designed for those who may be constantly popping and and out of Docker containers or VMs all day and want a simple way to install some of the most handy cli tools without thinking or expending more than 5 seconds of effort. Handy tools available include search utilities like `fd` and `fzf`, greppers like `rg`, logfile analyzers and many other amazing tools contributed to the open source community.
+== Status and compatibility
 
-The beauty of `provii` is that it is a single shell script. You can download it with curl as follows:
+The current development script identifies itself as *0.4.3*. Historical RPM/DEB
+releases include *0.3.1*; those packages predate the latest compatibility work.
+See https://github.com/kriipke/provii/releases[GitHub releases] for published
+artifacts and https://github.com/kriipke/provii/tags[tags] for source versions.
+This README describes the current `main` branch.
 
-  curl -o /usr/bin https://cdn.spencersmolen.com/provii
+The link:.github/workflows/ci.yml[CI workflow] checks syntax and the installer
+manifest, and smoke-tests these combinations:
 
-The list of available installers be found by typing  <<provii ls,`provii ls`>> or by browsing link:https://github.com/kriipke/provii/tree/master/installs[here].
+[cols="1,1,2",options="header"]
+|===
+|Operating system |Architecture |Tools covered by installation smoke tests
+|Ubuntu Linux |x86_64 |jq, fd, rg, glow
+|Ubuntu Linux |ARM64 |jq, fd, rg, glow
+|macOS |Apple Silicon |jq, fd, rg, glow
+|macOS |Intel |jq, rg, glow
+|===
 
-toc::[]
+Support varies by recipe and upstream release assets. This matrix does not
+promise that every recipe works on every platform. Other Linux distributions
+and libc variants need broader verification.
 
-++++
-<p align="center">
-  <img width="550" height="550" src="share/demo.svg">
-</p>
-++++
+Use *Bash* to invoke the entrypoint; installer recipes also run in Bash.
+The script retains a `/bin/sh` shebang and CI exercises `sh` on its runners,
+but strict POSIX shell portability is not established. Invoke `bash provii`
+explicitly on systems whose `sh` differs from those runners.
 
-`provii` was designed with 3 goals:
+== Requirements
 
-1. Provide the easiest possible access to the most powerful command line tools avaialble.
-2. Have as small of a footprint as possible. Unlike a traditional package manager, most of the `provii` installers will put only a few kilobytes of data on your machines and rarely exceed more than 3 files: 
-.. a binary executable (the program)
-.. a shell autocompletion script
-.. a `man` page
-3. To run on as many systems as possible. For this reason it was written in POSIX `sh`.
+* Bash, `curl`, and standard Unix utilities including `awk`, `sed`, `grep`, and `install`.
+* `jq` for GitHub API responses. The script attempts to download it when absent;
+  installing it with your system package manager first is recommended.
+* Archive tools required by the chosen recipe: `tar`, `unzip`, and/or xz support.
+* On Linux, `ldd` for libc detection.
+* Network access to GitHub and upstream download hosts.
+* Git for the checkout-based quickstart below.
 
-TIP: _If you would like to add your piece of software to the list of installers avaliable via provii, either make a pull request or contact me._
+Man pages and shell completions depend on the selected recipe and local setup.
+A `GITHUB_TOKEN` environment variable is optional for authenticated GitHub API
+requests; keep it outside the repository.
 
-== Installation
-
-=== Method 1: curl `provii` directly into bash
-
-The simplest way to use provii is to curl the script directly into bash. For example, to download the tool `fd`, you would simply run:
+== Quickstart from a checkout
 
 [source,bash]
-bash -c "$( curl https://cdn.spencersmolen.com/provii )" fd
-
-Once run, provii will print out the location to which the binary will be installed and print some information as the script runs. See <<provii install,`provii install`>> for output.
-
-The best part about running provii this way is that after the installation of a program such as `fd`, _the only files left on your machine will be the ones you requested_. In other words, when provii is run by downloading via `curl`/`wget` and piped directly into `bash`, there will be no trace of provii itself or any intermediary files used during the installation!
-
-=== Method 2: download `provii` and place in `$PATH`
-
-If you choose to download provii you will be afforded a few more features, mostly geared towards previewing the changes that will be made before running an installation. Once downloaded, the subcommands below will be available.
-There is also `.deb` and `.rpm` packages available for install like so:
-
-=== Method 3: using the `.rpm` or `.deb` packages
-
-  # Fedora-based distributions
-  dnf install -y https://github.com/kriipke/provii/releases/download/0.3.1/provii-0.3.1-1.el7.noarch.rpm
-
-  # Debian-based distributions
-  apt install -y https://github.com/kriipke/provii/releases/download/0.3.1/provii_0.3.1-1.el7_all.deb
-
-
-== Usage
-
-== `man` page
-
-[source]
 ----
-	PROVII(1)                        provii manual                       PROVII(1)
-
-
-
-	NAME
-	       provii  - minimalist command-line utility installer & provisioning tool
-
-
-	SYNOPSIS
-	       provii install [-vi] APPLICATION ...
-	       provii env [APPLICATION]
-	       provii cat APPLICATION
-	       provii ls
-
-
-	DESCRIPTION
-	       provii is a provisioning tool to painlessly download your favorite com‐
-	       mand-line utilities as pre-compiled binaries on a machine that that may
-	       be  missing  them.  It is a convenient alternative when you do not have
-	       the premissions required to install software using the systems  package
-	       manager or when you do not wish to install the software system-wide.
-
-
-	STANDARD OPTIONS
-	       -b     Choose  the git branch that provii uses to fetch   installer in‐
-		      formation.
-
-
-	       -i     Ask user for confirm before any changes  to  the  system  before
-		      they are made.
-
-
-	       -v     Print extra information to standard out during runtime.
-
-
-	       -h     Print help menu.
-
-
-	PROVII COMMANDS
-	       provii install
-		      Install the application or applications given as arguments.
-
-
-	       provii cat
-		      Print  the  installation  script that would be run by provii in‐
-		      stall for a given application.
-
-
-	       provii env
-		      Show the values for variables that will populate the environment
-		      in  which  the  installation script for the given application is
-		      run.
-
-
-	       provii ls
-		      List all avaliable  applications  that  can  be  installed  with
-		      provii.
-
-
-	ENVIRONMENT VARIABLES
-	       PROVII_LOG
-		      Location  of file to write logs of all files created during run‐
-		      time.
-
-	       PROVII_CACHE
-		      Path to directory used to  store  intermediatary  files  created
-		      during installation.  Cleared at the end of every installation.
-
-	       PROVII_SCOPE
-		      Can  be set to either "system" or "user" - used to determine the
-		      path to use for the installation directories  (unless  they  are
-		      given  explicitly  as  environment  variables or in the proviirc
-		      file).
-
-	       PROVII_USER_BIN
-		      Installation path for all executables (when PROVII_SCOPE=user).
-
-	       PROVII_USER_MAN
-		      Installation path for all MAN pages (when PROVII_SCOPE=user).
-
-	       PROVII_USER_ZSH_COMP
-		      Installation   path    for    all    ZSH    completions    (when
-		      PROVII_SCOPE=user & zsh installed).
-
-	       PROVII_USER_BASH_COMP
-		      Installation    path    for    all    BASH   completions   (when
-		      PROVII_SCOPE=user & bash-completion).
-
-	       PROVII_SYSTEM_BIN
-		      Installation path for all  executables  (when  PROVII_SCOPE=sys‐
-		      tem).
-
-	       PROVII_SYSTEM_MAN
-		      Installation path for all MAN pages (when PROVII_SCOPE=system).
-
-	       PROVII_SYSTEM_ZSH_COMP
-		      Installation    path    for    all    ZSH    completions   (when
-		      PROVII_SCOPE=system & zsh installed).
-
-	       PROVII_SYSTEM_BASH_COMP
-		      Installation   path   for    all    BASH    completions    (when
-		      PROVII_SCOPE=system & bash-completion installed).
-
-
-	FILES
-	       Configuration
-		      $XDG_CONFIG_HOME/proviirc
-		      $HOME/.config/proviirc
-
-
-	       Log    $HOME/.provii.log
-
-
-	HOMEPAGE
-	       https://github.com/kriipke/provii
-
-
-	BUGS
-	       No known bugs. File an issue report:
-	       https://github.com/kriipke/provii/issues
-
-
-	AUTHOR
-	       Spencer Smolen (mail@spencersmolen.com)
-
-
-
-	provii                            2020-11-01                         PROVII(1)
+git clone https://github.com/kriipke/provii.git
+cd provii
+bash ./provii ls
+bash ./provii cat fd
 ----
 
-==== `provii install`
+`ls` lists compatible recipes. `cat` prints a recipe for inspection without
+running that recipe. Startup may still perform a network version check or
+bootstrap `jq` if missing.
 
-The `install` subcommand is the crux of provii as this is how you install the command-line utilities available via provii. Note that when you use provii using <<Method 1: curl `provii` directly into bash,method 1>>, interally provii just runs this command. Example output of `provii install fd`:
+For a user-scoped installation, first choose directories explicitly:
 
-image::provii_install.png[provii install fd]
+[source,bash]
+----
+mkdir -p "$HOME/.local/bin"
+export PATH="$HOME/.local/bin:$PATH"
+export PROVII_SCOPE=user
+export PROVII_USER_BIN="$HOME/.local/bin"
+export PROVII_USER_MAN="$HOME/.local/share/man"
+export PROVII_USER_BASH_COMP="$HOME/.local/share/bash-completion/completions"
+export PROVII_USER_ZSH_COMP="$HOME/.local/share/zsh/site-functions"
 
+bash ./provii env fd
+bash ./provii install fd
+"$HOME/.local/bin/fd" --version
+----
 
-For more information, run `provii install -h`.
+The completion directories must be part of your shell's completion search path
+to take effect. Run these commands from the repository root to use its local
+recipes; outside that directory, provii fetches recipes from GitHub.
 
-==== `provii env`
+== Install the entrypoint on your PATH
 
-The `env` subcommand takes an optional argument, an installer name, and is meant to gather facts and define variables that _would be used_ in the provii installer provided. For example, if `provii env fd` was run as root it would produce output that would look something like the following:
+You can keep the entrypoint without a full checkout:
 
-image::provii_env.png[provii env fd]
+[source,bash]
+----
+mkdir -p "$HOME/.local/bin"
+curl -fSL https://raw.githubusercontent.com/kriipke/provii/main/provii -o "$HOME/.local/bin/provii"
+chmod 755 "$HOME/.local/bin/provii"
+export PATH="$HOME/.local/bin:$PATH"
+bash "$HOME/.local/bin/provii" ls
+bash "$HOME/.local/bin/provii" install fd
+----
 
+Use `bash "$HOME/.local/bin/provii" ...` explicitly for the shell compatibility
+reason described above. The URL tracks `main`; replace `main` with a tag or
+commit when you need a fixed entrypoint version. Recipes default to `main`
+independently of the entrypoint version.
 
-For more information, run `provii env -h`.
+The historical CDN is not required for these instructions. Historical RPM and
+DEB packages remain on the releases page, but the packaging workflow and package
+metadata need updating before a new package release is advertised here.
 
-==== `provii ls`
+== Commands
 
-The `ls` subcommand allows you to print all the command-line tools avaliable for installation via provii. Example output:
+[source,bash]
+----
+bash ./provii                       # usage
+bash ./provii ls                    # list compatible recipes
+bash ./provii cat fd                # inspect a recipe
+bash ./provii env fd                # inspect resolved installation settings
+bash ./provii install -i fd         # request confirmation before installation
+bash ./provii install fd rg         # install multiple tools
+bash ./provii install -b main fd    # choose the remote recipe branch
+----
 
-image::provii_ls.png[provii ls]
+The `-b` option affects remote recipe retrieval. A matching recipe in the local
+`repository/` directory takes precedence. `env` gathers facts and can create
+configuration/cache directories; it is not a filesystem dry run.
 
-
-For more information, run `provii ls -h`.
-
-[NOTE]
-Alternatively, you can browse the installers avaliable using your browser at https://github.com/kriipke/provii/tree/master/installs
-
-==== `provii cat`
-
-The `cat` subcommand takes the name of an installer as an argument and prints the actual script that will be run without running it. Example output of `provii cat fd`:
-
-image::provii_cat.png[provii cat fd]
-
-Note that unless you are writing a provii installer yourself or are doing debugging, you really don't need to know anything about the script or how it works unless you just want to make sure you're not running anything malicious.
-
-For more information, run `provii cat -h`.
-
-
-== How `provii` works
-`provii` works by gathering the necessary information about the system its running on to install the pre-built binary (as well as man pages & shell completions if available), and then fetching & running the appropriate installion scripts hosted in provii's github repository in the link:https://github.com/kriipke/provii/tree/master/installs[installs directory].
-
-When gathering facts, provii intelligently determines the relevant settings based on, most imporarntly, whether it was run with root privilages or not along with things like operating system, processor type & installed version of `libc`.
-
-For example, during a typical install of `fd`, an alternative to the `find` tool written in Rust, if the default settings are used, provii would install the following files:
-
-. `fd` binary
-. `fd` man page
-. `fd` shell completions
-
-For more information on where these files are installed and how that location is determined see <<Environment>> and <<How provii works,How `provii` works>> below.
-
-The script runs through the following steps to install a piece of software:
-
-. determining whether it is being run with root privilages or not and subsequently setting the variable `$PROVII_SCOPE`, which will either be defined as `system` or `user`
-. gathering information about directories to place binary files, man pages, and shell completions based on `$PROVII_SCOPE`
-. gathering information about the current system running provii needed to select and install the correct binary, including this like processor type and operating system
-. next, provii creates a `bash` subshell with a clean environment and populates that environment with variables that will be used while running the installation, defined during steps 1, 2 & 3 - for more information on what these varaibles are and how they are used see <<Environment>>.
-. finally, within the newly created subshell provii runs the requested installer that has been fetched from the provii Github repository in the link:https://github.com/kriipke/provii/tree/master/installs[installs directory].
-
-== Environment
-
-This section explains all the varaibles that exists in the subshells in which the provii installers are run and how they are defined. This information is of particular interest to those who wish to modify the way that provii works or those who wish to contribute an installer script of their own to the project.
-
-All of the variables listed in <<Environment>> below are the names of the variables as they are used in the provii script itself. These variables are _then_ used to populate the environment of the subshell in which the installer is run under different names. So, for example, when run as root the value assigned to `$PROVII_SYSTEM_BIN` will be avaliable in the installer subshell via `$BIN`. Likewise, if provii is run as a regular user the value assigned to `$PROVII_USER_BIN` will be avaliable via `$BIN`.
-
-These variables are redefined by new names in the subshell  for two reasons:
-
-. so that the installer scripts can be written without any regard to whether they will be run with root privilages or not, while at the same time allowing for provii to be intricately configured in the `proviirc`
-. so that any exported varaibles in the shell from which provii is run, e.g. exported varaibles in the environment of the shell in which you run `./provii ...` do not interfere with the operation of provii. For example, if provii did not do this and you had an environment variable named `$BIN`, provii will use that variable as the default install destination for binary files which could cause unintended consequences.
-
-Below is a list of all the varaibles avaliable within the subshells (and consequently the installer scripts) along with how they are defined in their parent shell, e.g. the main provii script before the subshell is entered.
-
-[NOTE]
-Variables defined in a `proviirc` file, should one exist on the machine, will not be set according to the logic below, but rather retain the value defined in the `proviirc` file (assuming that value is not null), see <<Configuration>> for more information.
-
-[cols="m,d",options="header"]
-|===
-|variable
-|definition logic
-
-|$SCOPE
-a|
-. output of `id -u` determines value of `$PROVII_SCOPE`
-. when passed to subshell, `$PROVII_SCOPE` -> `$SCOPE`
-
-|$OS
-a|
-. output of `uname -s` determines value of `$PROVII_SYSTEM`
-. when passed to subshell, `PRVOII_SYSTEM` -> `$OS`
-
-|$ARCH
-a|
-. output of `uname -m` determines value of `$PROVII_MACHINE`
-. when passed to subshell, `PRVOII_MACHINE` -> `$ARCH`
-
-|$LIBC
-a|
-. output of `ldd --version` determines value of `$PROVII_LIBC`
-. when passed to subshell, `$PROVII_LIBC` -> `$LIBC`
-
-|$CACHE
-a|
-. hard-coded, `PROVII_CACHE=~/.cache/provii`
-. when passed to subshell, `$PROVII_CACHE` -> `$CACHE`
-
-|$LOG
-a|
-. hard-coded, `PROVII_LOG=$PROVII_CACHE/run.log`
-. when passed to subshell, `$PROVII_LOG` -> `$LOG`
-
-|$BIN
-a|
-. value of `$PROVII_BIN` set
-.. _when run as root_, `PROVII_BIN=/usr/local/bin`
-.. _when run as regular user_, `PROVII_BIN=~/.local/bin`
-. when passed to subshell, `$PROVII_BIN` -> `$BIN`
-
-|$MAN
-a|
-. value of `$PROVII_MAN` set
-.. _when run as root_
-... if `/usr/share/man` listed in output of `manpath`, then `/usr/share/man` -> `$PROVII_MAN`
-... elif, first directory listed in the output of `manpath` -> `$PROVII_MAN`
-... else, `$PROVII_MAN` remains unset
-.. _regular user_
-... if `~/.local/share/man` listed in output of `manpath`, then `~/.local/share/man` -> `$PROVII_MAN`
-... elif, first directory listed in the output of `manpath` prefixed with `$HOME` -> `$PROVII_MAN`
-... else, `$PROVII_MAN` remains unset
-. when passed to subshell, _if `$PROVII_MAN` was set_ `$PROVII_MAN` -> `$MAN`
-
-|$ZSH_COMP
-a|
-. value of `$PROVII_ZSH_COMP` set
-.. _when run as root_
-... if first directory contained in the value of `$fpath` containing `completion` prefixed with `/usr` or `/etc` -> `$PROVII_ZSH_COMP`
-... elif, first directory contained in the value of `$fpath` containing `custom` prefixed with `/usr` or `/etc` -> `$PROVII_ZSH_COMP`
-... else, `$PROVII_ZSH_COMP` remains unset
-.. _when run as regular user_
-... if first directory contained in the value of `$fpath` containing `completion` prefixed with `$HOME` -> `$PROVII_ZSH_COMP`
-... elif, first directory contained in the value of `$fpath` containing `custom` prefixed with `$HOME` -> `$PROVII_ZSH_COMP`
-... else, `$PROVII_ZSH_COMP` remains unset
-. when passed to subshell,  _if `$PROVII_ZSH_COMP` was set_ `$PROVII_ZSH_COMP` -> `$ZSH_COMP`
-
-|$BASH_COMP
-a|
-. value of `$PROVII_BASH_COMP` set
-.. _when run as root_, `PROVII_BASH_COMP=/etc/bash_completion.d`
-.. _when run as regular user_
-... when `bash-completion` version >= 2.9, `PROVII_BASH_COMP=~/bash-completion.d`
-... when `bash-completion` version < 2.9, `PROVII_BASH_COMP=${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion.d`
-. when passed to subshell, `$PROVII_BASH_COMP` -> `$BASH_COMP`
-|===
+The historical link:provii.1[man page] documents additional commands and options.
+Some examples in it predate the current implementation.
 
 == Configuration
 
-If you wish to change the default operation of provii as explained in the <<Environment>> section, you may explicitly define the value of the variables that dictate the operation of provii in a `proviirc` file. `provii` will check for a configuration file containing variable definitions in the following locations:
+provii sources a shell configuration file at `${XDG_CONFIG_HOME:-$HOME/.config}/proviirc`.
+See link:proviirc[proviirc] for an example. It is shell code, so use a file you
+control. Values in the configuration can override exported environment settings.
 
-- `$XDG_CONFIG_HOME/proviirc`, if `$XDG_CONFIG_HOME` is defined
-- `$HOME/.config/proviirc` otherwise
-
-Below is a sample configuration file with all of the possible variables and their default values. Variables without values listed below do not have a hard-coded default value but rather, their value is dynamically determined at runtime unless they are explicitly defined in the configuration file. For more information see <<Environment>>.
-
-[NOTE]
-The `proviirc` can contain as few or as many variables as you wish. However, it would only make sense to explictly define a variable in `proviirc` if you wish to override the default value as determined by the logic explained in the  <<Environment>> section.
-
-[source]
+[source,bash]
 ----
-# Sample ~/.config/proviirc with default values
-# variables without values have values that are dynamically determined at runtime,
-# unless they are explicitly defined in the proviirc, in which case that value is used
-
-PROVII_CACHE=~/.cache/provii
-PROVII_LOG=$PROVII_CACHE/run.log
-
-PROVII_SCOPE=
-PROVII_ARCH=
-PROVII_OS=
-PROVII_LIBC=
-
-# variables used when $PROVII_SCOPE == system
-
-PROVII_SYSTEM_BIN=/usr/local/bin
-PROVII_SYSTEM_MAN=/usr/share/man
-PROVII_SYSTEM_ZSH_COMP=
-PROVII_SYSTEM_BASH_COMP=/etc/bash_completion.d
-
-# variables used when $PROVII_SCOPE == user
-
-PROVII_USER_BIN=~/.local/bin
-PROVII_USER_MAN=~/.local/share/man
-PROVII_USER_ZSH_COMP=
-PROVII_USER_BASH_COMP=
+mkdir -p "$HOME/.config"
+cp proviirc "$HOME/.config/proviirc"
+# Edit the copied file for your installation paths.
 ----
+
+[cols="1,3",options="header"]
+|===
+|Variable |Purpose
+|`PROVII_SCOPE` |`user` or `system`; defaults according to whether the process runs as root.
+|`PROVII_USER_BIN`, `PROVII_SYSTEM_BIN` |Executable destination for the chosen scope.
+|`PROVII_USER_MAN`, `PROVII_SYSTEM_MAN` |Man-page destination.
+|`PROVII_USER_BASH_COMP`, `PROVII_SYSTEM_BASH_COMP` |Bash completion destination.
+|`PROVII_USER_ZSH_COMP`, `PROVII_SYSTEM_ZSH_COMP` |Zsh completion destination.
+|`PROVII_CACHE` |Temporary installation directory; defaults under `${XDG_CACHE_HOME:-$HOME/.cache}/provii`.
+|`PROVII_LOG` |Installation log location.
+|`PROVII_OS`, `PROVII_ARCH`, `PROVII_LIBC` |Override detected platform details; normally leave unset.
+|`GITHUB_TOKEN` |Optional GitHub API token, supplied through the environment.
+|===
+
+Use `env` to inspect resolved paths rather than assuming that every machine
+uses the same defaults. Prefer explicit user destinations when trying a recipe.
+
+== How installation works
+
+. Gather platform facts and resolve installation destinations.
+. Read a local recipe or fetch one from GitHub.
+. Show the installation targets and run the recipe in a Bash subprocess.
+. Download upstream assets and install the requested files.
+
+Recipes are executable shell code. Download checksum verification and
+transactional rollback are not implemented consistently; inspect recipes and
+use trusted upstream sources. Tools installed by provii retain their own licenses.
+
+== Development and verification
+
+[source,bash]
+----
+# Run from the repository root; these checks do not install tools.
+bash -n provii
+sh -n provii
+for recipe in repository/*; do
+  [ "${recipe##*/}" = manifest.json ] || bash -n "$recipe"
+done
+make manifest
+git diff --exit-code repository/manifest.json
+----
+
+`make manifest` requires `jq` and rewrites the manifest. The current generator
+also includes `manifest.json` itself; excluding metadata is follow-up work.
+
+The link:.github/workflows/ci.yml[CI installation smoke tests] perform actual
+downloads and installations in runner temporary directories. The older Bats
+suite and generator in link:tests/[tests/] contain stale paths and are not
+currently a reliable one-command test suite.
+
+== Remaining work
+
+Concrete opportunities include download integrity verification, reliable failure
+recovery, repairing the offline regression suite, refreshing package releases,
+and expanding the tested compatibility matrix. These are candidate areas rather
+than a claim that all work is scheduled. Maintainer-selected issues should state
+scope and completion criteria before being used as a project commitment.
+
+== Maintainer and history
+
+Created and maintained by *Spencer Smolen* (https://github.com/kriipke[@kriipke]).
+Historical author identities `l0xy`, `prismo`, `kriipke`, and Spencer Smolen refer
+to the same maintainer.
+
+Generated Vagrant state, including an obsolete VM SSH private key, has been
+removed from published branches and tags. Existing clones must be replaced or
+carefully cleaned before pushing old history back to GitHub. The affected VMs
+have been retired.
+
+== License
+
+MIT License; see link:LICENSE[LICENSE]. The current code is offered under MIT
+by its copyright owner. Older releases were distributed under GPL v3 and retain
+their historical license notices. Third-party tools and test dependencies keep
+their respective licenses.

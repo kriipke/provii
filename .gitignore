@@ -18,3 +18,11 @@ Sessionx.vim
 tags
 # Persistent undo
 [._]*.un~
+
+# Generated VM state and local credentials
+.vagrant/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
